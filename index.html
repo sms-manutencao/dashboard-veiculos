@@ -436,6 +436,14 @@ function processarDados(linhas, tipo) {
       dataAF = new Date((Number(dataAF) - 25569) * 86400 * 1000).toLocaleDateString('pt-BR');
     }
 
+    // VALOR TOTAL DO ITEM pode ser fórmula no CSV — calcula VALOR UNITÁRIO × QTDE TOTAL como fallback
+    let valorTotal = l["VALOR TOTAL DO ITEM"] || '';
+    const valorNum = parseFloat(String(valorTotal).replace(",", "."));
+    if (!valorTotal || isNaN(valorNum) || valorNum === 0) {
+      const unitario = parseFloat(String(l["VALOR UNITÁRIO"] || l["VALOR UNITARIO"] || '').replace(",", "."));
+      if (!isNaN(unitario) && qtdeTotal > 0) valorTotal = unitario * qtdeTotal;
+    }
+
     return {
       tombamento: l["TOMBAMENTO"] || '',
       descricao: l["DESCRIÇÃO"] || l["DESCRICAO"] || '',
@@ -444,7 +452,7 @@ function processarDados(linhas, tipo) {
       qtdeRestante: qtdeTotal - qtdeEntregue,
       af: l["AF"] !== undefined ? String(l["AF"]).trim() : '',
       dataAF,
-      valorTotal: l["VALOR TOTAL DO ITEM"] || '',
+      valorTotal,
       fornecedor: l["NOME DO FORNECEDOR"] || '',
       nf: [...new Set(nfs)].join(", "),
       entregaStatus: qtdeEntregue === 0 ? "sim" : "não"
