@@ -313,12 +313,13 @@ let dados = [], dadosFiltrados = [];
 let autoRefreshTimer = null;
 
 // ── INIT: carrega URL salva automaticamente ──────────────────
+// URL fixa da planilha — carrega automaticamente para todos
+const URL_FIXA = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSIPF2ieYctjRC4amSoonXmxkBjgesIAQkbymjNe0H44FVUCNPjhNKuNKHxi5IJGrFWl_GZsK7G_6n5/pub?gid=754981401&single=true&output=csv';
+
 window.addEventListener('load', () => {
-  const urlSalva = localStorage.getItem('sheets_csv_url_2026');
-  if (urlSalva) {
-    document.getElementById('sheets-url').value = urlSalva;
-    carregarDoSheets();
-  }
+  const urlSalva = localStorage.getItem('sheets_csv_url_2026') || URL_FIXA;
+  document.getElementById('sheets-url').value = urlSalva;
+  carregarDoSheets();
 });
 
 // ── GOOGLE SHEETS CSV ────────────────────────────────────────
