@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Chamados de Manutenção — SMS</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; background: #f5f5f2; color: #1a1a18; min-height: 100vh; }
+  :root {
+    --blue: #185FA5; --blue-l: #E6F1FB; --blue-m: #378ADD;
+    --red: #A32D2D; --red-l: #FCEBEB; --red-m: #E24B4A;
+    --amber: #854F0B; --amber-l: #FAEEDA; --amber-m: #EF9F27;
+    --green: #3B6D11; --green-l: #EAF3DE; --green-m: #639922;
+    --gray-l: #F1EFE8; --gray-m: #888780;
+    --teal: #0F6E56; --teal-l: #E1F5EE;
+    --border: rgba(0,0,0,0.12);
+    --bg: #ffffff; --bg2: #f5f5f2; --text: #1a1a18; --text2: #5f5e5a;
+  }
+  .nav { display: flex; align-items: center; gap: 8px; padding: 12px 20px; background: #fff; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 50; flex-wrap: wrap; }
+  .nav-logo { font-size: 14px; font-weight: 600; color: var(--text); flex: 1; min-width: 120px; }
+  .nav-logo span { color: var(--blue); }
+  .nav-logo small { display: block; font-size: 11px; font-weight: 400; color: var(--text2); }
+  .nav-btn { font-size: 12px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; background: transparent; color: var(--text2); transition: all .15s; }
+  .nav-btn:hover { background: var(--blue-l); color: var(--blue); border-color: var(--blue); }
+  .nav-btn.primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .nav-btn.primary:hover { background: var(--blue-m); }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .status-bar { display: flex; align-items: center; gap: 6px; padding: 6px 20px; background: var(--green-l); border-bottom: 1px solid var(--green-m); font-size: 12px; color: var(--teal); }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green-m); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* LANDING */
+  .landing { max-width: 720px; margin: 0 auto; padding: 48px 20px; }
+  .landing-hero { text-align: center; margin-bottom: 40px; }
+  .landing-hero .badge { display: inline-block; padding: 4px 14px; background: var(--blue-l); color: var(--blue); border-radius: 20px; font-size: 12px; font-weight: 500; margin-bottom: 16px; }
+  .landing-hero h1 { font-size: 26px; font-weight: 600; margin-bottom: 8px; }
+  .landing-hero p { color: var(--text2); font-size: 15px; }
+  .portal-cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .portal-card { padding: 24px 20px; border: 1px solid var(--border); border-radius: 14px; cursor: pointer; text-align: left; background: #fff; transition: all .15s; }
+  .portal-card:hover { border-color: var(--blue); box-shadow: 0 4px 16px rgba(24,95,165,.1); transform: translateY(-1px); }
+  .portal-card .icon { font-size: 30px; margin-bottom: 10px; display: block; }
+  .portal-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 5px; }
+  .portal-card p { font-size: 12px; color: var(--text2); line-height: 1.5; }
+
+  /* FORM */
+  .form-wrap { max-width: 600px; margin: 0 auto; padding: 32px 20px; }
+  .form-card { background: #fff; border-radius: 14px; border: 1px solid var(--border); padding: 28px; }
+  .form-title { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .form-sub { font-size: 13px; color: var(--text2); margin-bottom: 24px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .05em; }
+  .form-group select, .form-group textarea, .form-group input[type=text] { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; background: #fff; color: var(--text); resize: vertical; transition: border-color .15s; }
+  .form-group select:focus, .form-group textarea:focus, .form-group input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(55,138,221,.15); }
+  .radio-group { display: flex; gap: 12px; }
+  .radio-opt { flex: 1; display: flex; align-items: center; gap: 10px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: all .15s; }
+  .radio-opt:hover { background: var(--bg2); }
+  .radio-opt.selected-normal { border-color: var(--blue); background: var(--blue-l); }
+  .radio-opt.selected-urgent { border-color: var(--red-m); background: var(--red-l); }
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .dot-normal { background: var(--blue); }
+  .dot-urgent { background: var(--red-m); }
+  .submit-btn { width: 100%; padding: 13px; border: none; border-radius: 8px; background: var(--blue); color: white; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; transition: background .15s; }
+  .submit-btn:hover { background: var(--blue-m); }
+  .submit-btn:disabled { background: var(--gray-m); cursor: not-allowed; }
+
+  /* SUCCESS */
+  .success-wrap { max-width: 480px; margin: 0 auto; padding: 60px 20px; text-align: center; }
+  .success-icon { width: 72px; height: 72px; border-radius: 50%; background: var(--green-l); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 32px; }
+  .success-wrap h2 { font-size: 22px; font-weight: 600; margin-bottom: 8px; }
+  .success-wrap p { color: var(--text2); font-size: 14px; margin-bottom: 24px; line-height: 1.6; }
+  .ticket-num { display: inline-block; padding: 8px 24px; background: var(--green-l); border-radius: 24px; font-size: 20px; font-weight: 700; color: var(--teal); margin-bottom: 24px; letter-spacing: 1px; }
+  .success-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+  /* CONSULTA */
+  .consulta-wrap { max-width: 560px; margin: 0 auto; padding: 40px 20px; }
+  .consulta-card { background: #fff; border-radius: 14px; border: 1px solid var(--border); padding: 28px; }
+  .consulta-title { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .consulta-sub { font-size: 13px; color: var(--text2); margin-bottom: 24px; }
+  .consulta-input-row { display: flex; gap: 10px; }
+  .consulta-input-row input { flex: 1; padding: 12px 16px; border: 2px solid var(--border); border-radius: 10px; font-size: 16px; font-family: inherit; letter-spacing: 2px; text-transform: uppercase; transition: border-color .15s; }
+  .consulta-input-row input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(55,138,221,.15); }
+  .consulta-input-row input::placeholder { letter-spacing: 0; text-transform: none; font-size: 14px; }
+  .btn-consultar { padding: 12px 20px; border: none; border-radius: 10px; background: var(--blue); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; transition: background .15s; }
+  .btn-consultar:hover { background: var(--blue-m); }
+  .consulta-result { margin-top: 24px; display: none; }
+  .consulta-result.visible { display: block; }
+
+  /* CARD DE RESULTADO DA CONSULTA */
+  .status-card { border-radius: 14px; border: 1px solid var(--border); overflow: hidden; }
+  .status-card-header { padding: 16px 20px; display: flex; align-items: center; gap: 12px; }
+  .status-card-header.aberto { background: var(--amber-l); border-bottom: 1px solid #e8d9b5; }
+  .status-card-header.em_andamento { background: var(--blue-l); border-bottom: 1px solid #c0d9f0; }
+  .status-card-header.concluido { background: var(--green-l); border-bottom: 1px solid #b8dda0; }
+  .status-icon { font-size: 32px; }
+  .status-title { font-size: 18px; font-weight: 700; }
+  .status-subtitle { font-size: 13px; opacity: .75; margin-top: 1px; }
+  .status-card-body { padding: 20px; background: #fff; }
+  .status-row { display: flex; gap: 8px; margin-bottom: 10px; font-size: 13px; }
+  .status-row .lbl { font-weight: 600; color: var(--text2); min-width: 110px; }
+  .status-row .val { color: var(--text); flex: 1; }
+  .status-timeline { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
+  .status-timeline h4 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text2); margin-bottom: 14px; }
+  .tl { display: flex; flex-direction: column; gap: 0; }
+  .tl-item { display: flex; gap: 12px; }
+  .tl-left { display: flex; flex-direction: column; align-items: center; width: 28px; }
+  .tl-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--border); background: #fff; flex-shrink: 0; margin-top: 2px; }
+  .tl-dot.done { background: var(--green-m); border-color: var(--green-m); }
+  .tl-dot.active { background: var(--blue); border-color: var(--blue); box-shadow: 0 0 0 3px rgba(55,138,221,.2); }
+  .tl-line { flex: 1; width: 2px; background: var(--border); min-height: 28px; }
+  .tl-line.done { background: var(--green-m); }
+  .tl-content { padding-bottom: 24px; flex: 1; }
+  .tl-content .tl-label { font-size: 13px; font-weight: 600; }
+  .tl-content .tl-date { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .tl-item:last-child .tl-line { display: none; }
+  .not-found { text-align: center; padding: 32px 20px; color: var(--text2); }
+  .not-found .nf-icon { font-size: 40px; margin-bottom: 12px; }
+  .not-found p { font-size: 14px; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .badge-urgent { background: var(--red-l); color: var(--red); }
+  .badge-normal { background: var(--blue-l); color: var(--blue); }
+
+  /* DASHBOARD */
+  .dash { max-width: 960px; margin: 0 auto; padding: 24px 20px; }
+  .dash-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+  .dash-header h2 { font-size: 20px; font-weight: 600; }
+  .btn-report { font-size: 13px; padding: 8px 16px; border: 1px solid var(--blue); border-radius: 8px; cursor: pointer; background: var(--blue-l); color: var(--blue); font-weight: 500; transition: all .15s; }
+  .btn-report:hover { background: var(--blue); color: #fff; }
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .kpi { padding: 16px 18px; border-radius: 12px; background: #fff; border: 1px solid var(--border); }
+  .kpi .kpi-val { font-size: 28px; font-weight: 700; line-height: 1.1; }
+  .kpi .kpi-lbl { font-size: 12px; color: var(--text2); margin-top: 3px; }
+  .kpi-total .kpi-val { color: var(--blue); }
+  .kpi-urgent .kpi-val { color: var(--red); }
+  .kpi-open .kpi-val { color: var(--amber); }
+  .kpi-done .kpi-val { color: var(--green); }
+  .filters { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .filter-btn { padding: 6px 14px; border: 1px solid var(--border); border-radius: 20px; font-size: 12px; cursor: pointer; background: #fff; color: var(--text2); transition: all .15s; }
+  .filter-btn:hover { background: var(--bg2); }
+  .filter-btn.active { background: var(--blue-l); color: var(--blue); border-color: var(--blue); font-weight: 600; }
+  .ticket-list { display: flex; flex-direction: column; gap: 10px; }
+  .ticket-card { padding: 16px 18px; border: 1px solid var(--border); border-radius: 12px; background: #fff; transition: all .12s; }
+  .ticket-card:hover { border-color: #aaa; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+  .ticket-card.urgent { border-left: 4px solid var(--red-m); }
+  .tc-top { display: flex; align-items: flex-start; gap: 12px; }
+  .tc-id { font-size: 11px; color: var(--text2); white-space: nowrap; padding-top: 2px; font-weight: 600; }
+  .tc-body { flex: 1; }
+  .tc-unit { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .tc-desc { font-size: 13px; color: var(--text2); line-height: 1.5; }
+  .tc-meta { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .badge-open { background: var(--amber-l); color: var(--amber); }
+  .badge-progress { background: var(--blue-l); color: var(--blue); }
+  .badge-done { background: var(--green-l); color: var(--teal); }
+  .tc-time { font-size: 11px; color: var(--text2); }
+  .tc-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .tc-btn { font-size: 12px; padding: 5px 12px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; background: transparent; color: var(--text2); transition: all .12s; }
+  .tc-btn:hover { background: var(--bg2); }
+  .tc-btn-progress { border-color: var(--blue); color: var(--blue); }
+  .tc-btn-done { border-color: var(--green-m); color: var(--teal); }
+  .tc-btn-progress:hover { background: var(--blue-l); }
+  .tc-btn-done:hover { background: var(--green-l); }
+  .tc-btn-material { border-color: var(--teal); color: var(--teal); }
+  .tc-btn-material:hover { background: var(--teal-l); }
+  .tc-materiais { margin-top: 10px; padding: 10px 12px; background: var(--teal-l); border-radius: 8px; border-left: 3px solid var(--teal); font-size: 12px; color: var(--teal); line-height: 1.6; }
+  .tc-materiais strong { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text2); }
+  .empty-state .ei { font-size: 40px; margin-bottom: 12px; }
+
+  /* MODAIS */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: flex-start; justify-content: center; z-index: 100; padding: 20px; overflow-y: auto; }
+  .modal-overlay.hidden { display: none; }
+  .modal-box { background: #fff; border-radius: 16px; width: 100%; max-width: 700px; margin: auto; border: 1px solid var(--border); box-shadow: 0 20px 60px rgba(0,0,0,.15); }
+  .modal-header { display: flex; align-items: center; padding: 18px 24px; border-bottom: 1px solid var(--border); gap: 12px; }
+  .modal-header h3 { flex: 1; font-size: 17px; font-weight: 600; }
+  .modal-close { background: none; border: none; cursor: pointer; font-size: 20px; color: var(--text2); padding: 2px 8px; border-radius: 6px; line-height: 1; }
+  .modal-close:hover { background: var(--bg2); }
+  .modal-body { padding: 24px; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--border); }
+  .btn-cancel { padding: 9px 18px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; background: transparent; color: var(--text2); font-size: 13px; font-family: inherit; }
+  .btn-save { padding: 9px 20px; border: none; border-radius: 8px; cursor: pointer; background: var(--teal); color: white; font-size: 13px; font-weight: 600; font-family: inherit; }
+  .btn-print { padding: 9px 20px; border: none; border-radius: 8px; cursor: pointer; background: var(--blue); color: white; font-size: 13px; font-weight: 600; font-family: inherit; }
+  .mat-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; min-height: 40px; }
+  .mat-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--bg2); border-radius: 8px; border: 1px solid var(--border); font-size: 13px; }
+  .mat-item .mat-nome { flex: 1; font-size: 12px; }
+  .mat-item .mat-qtd { font-size: 12px; color: var(--text2); background: #fff; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border); min-width: 48px; text-align: center; }
+  .mat-item .mat-del { background: none; border: none; cursor: pointer; color: var(--text2); font-size: 16px; padding: 0 4px; border-radius: 4px; }
+  .mat-item .mat-del:hover { background: var(--red-l); color: var(--red); }
+  .mat-search-wrap { position: relative; margin-bottom: 8px; }
+  .mat-search-input { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: inherit; background: #fff; }
+  .mat-search-input:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px rgba(15,110,86,.12); }
+  .mat-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; max-height: 200px; overflow-y: auto; z-index: 200; box-shadow: 0 4px 16px rgba(0,0,0,.1); display: none; }
+  .mat-dropdown.visible { display: block; }
+  .mat-dropdown-item { padding: 9px 14px; font-size: 12px; cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text); transition: background .1s; }
+  .mat-dropdown-item:last-child { border-bottom: none; }
+  .mat-dropdown-item:hover { background: var(--teal-l); color: var(--teal); }
+  .mat-add-row { display: flex; gap: 8px; margin-top: 4px; }
+  .mat-add-row input.inp-qtd { width: 80px; flex: none; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: inherit; }
+  .mat-add-row input.inp-qtd:focus { outline: none; border-color: var(--teal); }
+  .btn-add-mat { padding: 9px 16px; border: none; border-radius: 8px; background: var(--teal); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; }
+  .mat-obs { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: inherit; background: #fff; color: var(--text); resize: vertical; margin-top: 10px; }
+  .mat-empty { text-align: center; padding: 16px; color: var(--text2); font-size: 13px; }
+  /* CONSUMO */
+  .consumo-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  .consumo-table th { text-align: left; padding: 8px 10px; border-bottom: 2px solid var(--border); font-size: 11px; color: var(--text2); font-weight: 700; text-transform: uppercase; }
+  .consumo-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  .consumo-table tr:last-child td { border-bottom: none; }
+  .consumo-table tr:hover td { background: var(--bg2); }
+  .report-filters { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .report-filters label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+  .report-filters select { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: inherit; background: #fff; color: var(--text); }
+  .report-preview { border: 1px solid var(--border); border-radius: 10px; padding: 20px; max-height: 360px; overflow-y: auto; background: var(--bg2); }
+  .rpt-header { text-align: center; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .rpt-header h2 { font-size: 15px; font-weight: 700; }
+  .rpt-header p { font-size: 12px; color: var(--text2); margin-top: 3px; }
+  .rpt-kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 16px; }
+  .rpt-kpi { text-align: center; padding: 10px; border-radius: 8px; background: #fff; border: 1px solid var(--border); }
+  .rpt-kpi .val { font-size: 20px; font-weight: 700; }
+  .rpt-kpi .lbl { font-size: 10px; color: var(--text2); margin-top: 1px; }
+  .rpt-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .rpt-table th { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--text2); font-weight: 600; text-transform: uppercase; }
+  .rpt-table td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .rpt-table tr:last-child td { border-bottom: none; }
+  .rpt-table tr.row-urgent td { background: #fff5f5; }
+
+  /* LOGIN GESTOR */
+  .login-wrap { max-width: 400px; margin: 0 auto; padding: 60px 20px; }
+  .login-card { background: #fff; border-radius: 16px; border: 1px solid var(--border); padding: 36px 32px; text-align: center; box-shadow: 0 4px 24px rgba(0,0,0,.07); }
+  .login-icon { font-size: 40px; margin-bottom: 16px; }
+  .login-card h2 { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+  .login-card p { font-size: 13px; color: var(--text2); margin-bottom: 28px; }
+  .login-input { width: 100%; padding: 12px 16px; border: 2px solid var(--border); border-radius: 10px; font-size: 16px; font-family: inherit; text-align: center; letter-spacing: 4px; transition: border-color .15s; margin-bottom: 14px; }
+  .login-input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(55,138,221,.15); }
+  .login-input.error { border-color: var(--red-m); background: var(--red-l); }
+  .login-error { font-size: 13px; color: var(--red); margin-bottom: 12px; display: none; }
+  .login-error.visible { display: block; }
+  .btn-login { width: 100%; padding: 13px; border: none; border-radius: 10px; background: var(--blue); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background .15s; }
+  .btn-login:hover { background: var(--blue-m); }
+
+  @media (max-width: 600px) {
+    .portal-cards { grid-template-columns: 1fr; }
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .report-filters { grid-template-columns: 1fr 1fr; }
+    .rpt-kpis { grid-template-columns: repeat(2,1fr); }
+    .radio-group { flex-direction: column; }
+    .mat-add-row { flex-wrap: wrap; }
+    .consulta-input-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="nav-logo">
+    <span>Secretaria Municipal de Saúde</span>
+    <small>Sistema de Chamados de Manutenção</small>
+  </div>
+  <button class="nav-btn primary" onclick="showScreen('form')">+ Novo Chamado</button>
+  <button class="nav-btn" onclick="showScreen('consulta')">🔍 Consultar</button>
+  <button class="nav-btn" onclick="showScreen('login')">📋 Painel</button>
+  <button class="nav-btn" onclick="showScreen('landing')">Início</button>
+</div>
+
+<div class="status-bar">
+  <div class="status-dot"></div>
+  <span id="status-txt">Conectando...</span>
+</div>
+
+<div id="app">
+
+  <!-- LANDING -->
+  <div class="screen active" id="screen-landing">
+    <div class="landing">
+      <div class="landing-hero">
+        <div class="badge">Secretaria Municipal de Saúde e Bem-Estar — Mogi das Cruzes</div>
+        <h1>Sistema de Chamados de Manutenção</h1>
+        <p>Abra solicitações, consulte o andamento ou gerencie os chamados</p>
+      </div>
+      <div class="portal-cards">
+        <div class="portal-card" onclick="showScreen('form')">
+          <span class="icon">🏥</span>
+          <h3>Abrir Chamado</h3>
+          <p>Registrar nova solicitação de manutenção</p>
+        </div>
+        <div class="portal-card" onclick="showScreen('consulta')">
+          <span class="icon">🔍</span>
+          <h3>Consultar Chamado</h3>
+          <p>Verificar status pelo número de protocolo</p>
+        </div>
+        <div class="portal-card" onclick="showScreen('login')">
+          <span class="icon">📋</span>
+          <h3>Painel do Gestor</h3>
+          <p>Gerenciar e acompanhar todos os chamados</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FORM -->
+  <div class="screen" id="screen-form">
+    <div class="form-wrap">
+      <div class="form-card">
+        <div class="form-title">Abrir Chamado de Manutenção</div>
+        <div class="form-sub">Preencha os dados abaixo para registrar sua solicitação</div>
+        <div class="form-group">
+          <label>Unidade de Saúde</label>
+          <select id="sel-unidade"><option value="">— Selecione sua unidade —</option></select>
+        </div>
+        <div class="form-group">
+          <label>Nome do Solicitante</label>
+          <input type="text" id="inp-solicitante" placeholder="Seu nome completo">
+        </div>
+        <div class="form-group">
+          <label>Descrição do Problema</label>
+          <textarea id="inp-descricao" rows="4" placeholder="Descreva brevemente o problema a ser resolvido..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Nível de Urgência</label>
+          <div class="radio-group">
+            <div class="radio-opt selected-normal" id="opt-normal" onclick="selectUrgency('normal')">
+              <div class="dot dot-normal"></div>
+              <div><div style="font-size:14px;font-weight:600">Normal</div><div style="font-size:12px;color:var(--text2)">Pode aguardar agenda</div></div>
+            </div>
+            <div class="radio-opt" id="opt-urgente" onclick="selectUrgency('urgente')">
+              <div class="dot dot-urgent"></div>
+              <div><div style="font-size:14px;font-weight:600">Urgente</div><div style="font-size:12px;color:var(--text2)">Requer atenção imediata</div></div>
+            </div>
+          </div>
+        </div>
+        <button class="submit-btn" id="submit-btn" onclick="submitTicket()">Enviar Chamado</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUCCESS -->
+  <div class="screen" id="screen-success">
+    <div class="success-wrap">
+      <div class="success-icon">✅</div>
+      <h2>Chamado Registrado!</h2>
+      <p>Anote o número abaixo para consultar o andamento quando quiser.</p>
+      <div class="ticket-num" id="success-ticket-num">#000001</div>
+      <p style="margin-bottom:28px">Acesse <strong>Consultar Chamado</strong> e informe este número a qualquer momento para ver o status.</p>
+      <div class="success-actions">
+        <button class="nav-btn primary" onclick="showScreen('form')">+ Novo Chamado</button>
+        <button class="nav-btn" onclick="goConsultarProtocolo()">🔍 Consultar este Chamado</button>
+        <button class="nav-btn" onclick="showScreen('landing')">Início</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONSULTAR -->
+  <div class="screen" id="screen-consulta">
+    <div class="consulta-wrap">
+      <div class="consulta-card">
+        <div class="consulta-title">🔍 Consultar Chamado</div>
+        <div class="consulta-sub">Digite o número de protocolo recebido ao abrir o chamado</div>
+        <div class="consulta-input-row">
+          <input type="text" id="inp-protocolo" placeholder="Ex: #000001" maxlength="10"
+            onkeydown="if(event.key==='Enter')consultarChamado()"
+            oninput="this.value=this.value.toUpperCase()">
+          <button class="btn-consultar" onclick="consultarChamado()">Consultar</button>
+        </div>
+        <div class="consulta-result" id="consulta-result"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOGIN GESTOR -->
+  <div class="screen" id="screen-login">
+    <div class="login-wrap">
+      <div class="login-card">
+        <div class="login-icon">🔐</div>
+        <h2>Painel do Gestor</h2>
+        <p>Digite a senha para acessar o painel de gerenciamento</p>
+        <input type="password" class="login-input" id="inp-senha" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter')verificarSenha()">
+        <div class="login-error" id="login-error">Senha incorreta. Tente novamente.</div>
+        <button class="btn-login" onclick="verificarSenha()">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="screen" id="screen-dashboard">
+    <div class="dash">
+      <div class="dash-header">
+        <h2>Painel de Chamados</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-report" onclick="openRelatorio()">🖨 Relatório de Chamados</button>
+          <button class="btn-report" style="background:var(--teal-l);color:var(--teal);border-color:var(--teal)" onclick="openConsumo()">📦 Consumo de Materiais</button>
+        </div>
+      </div>
+      <div class="kpi-row">
+        <div class="kpi kpi-total"><div class="kpi-val" id="kpi-total">0</div><div class="kpi-lbl">Total</div></div>
+        <div class="kpi kpi-urgent"><div class="kpi-val" id="kpi-urgent">0</div><div class="kpi-lbl">Urgentes</div></div>
+        <div class="kpi kpi-open"><div class="kpi-val" id="kpi-open">0</div><div class="kpi-lbl">Em aberto</div></div>
+        <div class="kpi kpi-done"><div class="kpi-val" id="kpi-done">0</div><div class="kpi-lbl">Concluídos</div></div>
+      </div>
+      <div class="filters">
+        <button class="filter-btn active" onclick="setFilter('todos',this)">Todos</button>
+        <button class="filter-btn" onclick="setFilter('urgente',this)">🔴 Urgentes</button>
+        <button class="filter-btn" onclick="setFilter('aberto',this)">Abertos</button>
+        <button class="filter-btn" onclick="setFilter('em_andamento',this)">Em Andamento</button>
+        <button class="filter-btn" onclick="setFilter('concluido',this)">Concluídos</button>
+      </div>
+      <div class="ticket-list" id="ticket-list">
+        <div class="empty-state"><div class="ei">⏳</div>Carregando...</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL MATERIAIS -->
+<div class="modal-overlay hidden" id="modal-materiais">
+  <div class="modal-box" style="max-width:580px">
+    <div class="modal-header">
+      <h3>🔧 Materiais Utilizados</h3>
+      <button class="modal-close" onclick="closeMateriais()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:16px;padding:10px 12px;background:var(--bg2);border-radius:8px" id="mat-ticket-info"></div>
+      <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Materiais / Peças usados</div>
+      <div class="mat-list" id="mat-list"><div class="mat-empty">Nenhum material adicionado ainda.</div></div>
+      <div style="font-size:12px;font-weight:600;color:var(--teal);margin-bottom:6px">Adicionar item da lista:</div>
+      <div class="mat-search-wrap">
+        <input type="text" class="mat-search-input" id="inp-mat-busca" placeholder="🔍 Digite para buscar o material..." autocomplete="off"
+          oninput="filtrarMateriais(this.value)"
+          onkeydown="handleMatKey(event)"
+          onfocus="filtrarMateriais(this.value)">
+        <div class="mat-dropdown" id="mat-dropdown"></div>
+      </div>
+      <div class="mat-add-row">
+        <input type="text" id="inp-mat-selecionado" placeholder="Material selecionado" readonly
+          style="flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg2);color:var(--text)">
+        <input type="text" id="inp-mat-qtd" class="inp-qtd" placeholder="Qtd.">
+        <button class="btn-add-mat" onclick="addMaterial()">+ Adicionar</button>
+      </div>
+      <textarea class="mat-obs" id="inp-mat-obs" rows="3" placeholder="Observações sobre a manutenção realizada (opcional)..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeMateriais()">Cancelar</button>
+      <button class="btn-save" onclick="salvarMateriais()">✓ Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RELATÓRIO -->
+<div class="modal-overlay hidden" id="modal-relatorio">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>🖨 Gerar Relatório</h3>
+      <button class="modal-close" onclick="closeRelatorio()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="report-filters">
+        <div><label>Mês</label>
+          <select id="rpt-mes" onchange="renderPreview()">
+            <option value="todos">Todos os meses</option>
+            <option value="1">Janeiro</option>
+            <option value="2">Fevereiro</option>
+            <option value="3">Março</option>
+            <option value="4">Abril</option>
+            <option value="5">Maio</option>
+            <option value="6">Junho</option>
+            <option value="7">Julho</option>
+            <option value="8">Agosto</option>
+            <option value="9">Setembro</option>
+            <option value="10">Outubro</option>
+            <option value="11">Novembro</option>
+            <option value="12">Dezembro</option>
+          </select>
+        </div>
+        <div><label>Ano</label>
+          <select id="rpt-ano" onchange="renderPreview()">
+          </select>
+        </div>
+        <div><label>Status</label>
+          <select id="rpt-status" onchange="renderPreview()">
+            <option value="todos">Todos</option>
+            <option value="aberto">Abertos</option>
+            <option value="em_andamento">Em Andamento</option>
+            <option value="concluido">Concluídos</option>
+          </select>
+        </div>
+        <div><label>Urgência</label>
+          <select id="rpt-urgencia" onchange="renderPreview()">
+            <option value="todos">Todos</option>
+            <option value="urgente">Urgentes</option>
+            <option value="normal">Normais</option>
+          </select>
+        </div>
+      </div>
+      <div class="report-preview" id="report-preview"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeRelatorio()">Cancelar</button>
+      <button class="btn-print" onclick="imprimirRelatorio()">🖨 Imprimir / PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONSUMO DE MATERIAIS -->
+<div class="modal-overlay hidden" id="modal-consumo">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>📦 Consumo de Materiais por Período</h3>
+      <button class="modal-close" onclick="closeConsumo()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="report-filters" style="grid-template-columns:1fr 1fr">
+        <div><label>Mês</label>
+          <select id="con-mes" onchange="renderConsumo()">
+            <option value="todos">Todos os meses</option>
+            <option value="1">Janeiro</option><option value="2">Fevereiro</option>
+            <option value="3">Março</option><option value="4">Abril</option>
+            <option value="5">Maio</option><option value="6">Junho</option>
+            <option value="7">Julho</option><option value="8">Agosto</option>
+            <option value="9">Setembro</option><option value="10">Outubro</option>
+            <option value="11">Novembro</option><option value="12">Dezembro</option>
+          </select>
+        </div>
+        <div><label>Ano</label><select id="con-ano" onchange="renderConsumo()"></select></div>
+      </div>
+      <div id="consumo-preview" style="max-height:420px;overflow-y:auto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeConsumo()">Fechar</button>
+      <button class="btn-print" onclick="imprimirConsumo()">🖨 Imprimir / PDF</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA2bxUR3JqbWWebVrsjpezkxlkyR2UZ1kI",
+  authDomain: "chamados-saude.firebaseapp.com",
+  databaseURL: "https://chamados-saude-default-rtdb.firebaseio.com",
+  projectId: "chamados-saude",
+  storageBucket: "chamados-saude.appspot.com",
+  messagingSenderId: "764671745087",
+  appId: "1:764671745087:web:6b76e98f89188d181fac8a"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+document.getElementById('status-txt').textContent = '🟢 Conectado — dados em tempo real';
+
+const UNITS = [
+  "CENTRO MUNICIPAL DE SAUDE MENTAL E CAPS INFANTIL","CECCO",
+  "CENTRAL MUNICIPAL DE DISTRIBUIÇÃO DE MEDICAMENTOS",
+  "MELHOR EM CASA / HIPER-DIA / MEDICAMENTO EM CASA",
+  "VAGALUME SAÚDE INFANTIL","PRÓ - MULHER I E PROMEG",
+  "SECRETARIA MUNICIPAL DE SAÚDE","SETOR DE AMBULÂNCIA",
+  "UAPS 1 – AMBULATÓRIO TB E HANSENÍASE","CIAS RODEIO",
+  "HOSPITAL MATERNIDADE / PRÓ MULHER","UBS BIRITIBA USSÚ",
+  "UBS BOTUJURU","UBS BRÁZ CUBAS","UBS JARDIM CAMILA",
+  "UBS JARDIM IVETE","UBS JARDIM MARICÁ","UBS JARDIM SANTA TEREZA",
+  "UBS MINERAÇÃO","UBS PONTE GRANDE","UBS SABAÚNA","UBS SANTO ÂNGELO",
+  "UBS TAIAÇUPEBA","UBS VILA DA PRATA","UBS VILA JUNDIÁI",
+  "UBS VILA MORAES","UBS VILA NATAL","UBS VILA NOVA APARECIDA",
+  "UBS VILA SUISSA","UBS VILA NOVA JUNDIAPEBA",
+  "ESTOQUE MUNICIPAL DE VACINAS","PROJETO DENGUE",
+  "CENTRO DE CONTROLE DE ZOONOSES - ANTIGO UAA","CAPS II","UAPS 2 - AMB. DST / AIDS"
+];
+
+let gestorAutenticado = false;
+let currentUrgency = 'normal';
+let currentFilter = 'todos';
+let allTickets = [];
+let matTicketId = null;
+let matTemp = [];
+let lastProtocolo = '';
+
+window.showScreen = (name) => {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  window.scrollTo(0,0);
+};
+
+window.verificarSenha = () => {
+  const senha = document.getElementById('inp-senha').value;
+  const inp = document.getElementById('inp-senha');
+  const erro = document.getElementById('login-error');
+  if (senha === 'boneca') {
+    gestorAutenticado = true;
+    inp.value = '';
+    inp.classList.remove('error');
+    erro.classList.remove('visible');
+    window.showScreen('dashboard');
+  } else {
+    inp.classList.add('error');
+    erro.classList.add('visible');
+    inp.select();
+  }
+};
+
+
+const LISTA_MATERIAIS = [
+  "ADAPTADOR PLUG NOVO 10 A-250 V 2 PINOS P/ TOMADA ANTIGA CORBRANCO",
+  "ADAPTADOR PLUG NOVO 10 A-250 V 3 PINOS P/ TOMADA ANTIGA CORBRANCO",
+  "AGUARRAS MINERAL - FRASCO C/ 900 ML","AZULEJO NA COR BTANCO 15 X 15 CM",
+  "BARRAMENTO DE FASES PARA DISJUNTOR DIN BIFASICO 80 A 2 X 6 COMPRIMENTO 210 MM",
+  "BARRAMENTO DE FASES PARA DISJUNTOR DIN TRIFASICO 80 A 3 X 4 COMPRIMENTO 210 MM",
+  "BOIA AUTOMATICO DE NÍVEL INFERIOR 15 AMP","BOIA AUTOMATICO DE NÍVEL SUPERIOR 15 AMP",
+  "BOLSA DE LIGAÇÃO P/ VASO SANITÁRIO 38 MM/DN 40","BUCHA 12 MM COM PARAFUSO",
+  "BUCHA NYLON S-10","CABO FLEXÍVEL 4,0 MM - AZUL, ANTI-CHAMA, COM ISOLAÇÃO EM PVC 750 V",
+  "CABO FLEXÍVEL 4,0 MM - PRETO","CABO FLEXÍVEL 4,0 MM - VERDE","CABO FLEXÍVEL 4,0 MM -BRANCO",
+  "CABO FLEXÍVEL 6,0 MM - AZUL","CABO FLEXÍVEL 6,0 MM - PRETO",
+  "CABO FLEXÍVEL 6,0 MM - VERMELHO, ANTI-CHAMAS, COM ISOLAÇÃO EM PVC 750V",
+  "CABO TELEFÔNICO 01 PAR, USO EXTERNO, CAPA PRETA (FEB)",
+  "CABO TELEFÔNICO 2 PARES - EXTERNO (FE) - PRETO",
+  "CABO TELEFÔNICO CCE APL 03 PARES 0,65 MM","CABO TELEFÔNICO CCE APL 04 PARES 0,65 MM",
+  "CAIXA SOBREPOR SISTEMA X COM TOMADA 2F+T COMPLETA",
+  "CAIXA SOBREPOR SISTEMA X COM TOMADA P/ TELEFONE COMPLETA",
+  "CANALETA LISA 20 X 20 X 2000 MM SISTEMA X","CAP PARA ESGOTO DN 75",
+  "CAP SOLDÁVEL 25 MM","CAP SOLDÁVEL 32 MM",
+  "CONDULETE GALVANIZADO 3/4\", SEM ROSCA, TIPO C",
+  "CONDULETE MULTIPLO SEM TAMPA 3/4\" TIPO X , MATERIAL ALUMÍNIO",
+  "CONDULETE TIPO \"E\", 3/4, EM LIGA DE ALUMÍNIO, COM TAMPA E TOMADA 2 P+t 20A",
+  "CONECTOR P/ BARRAMENTO ATÉ 25MM - MATERIAL, METAL REVESTIDOCOM ACABAMENTO PLÁSTICO",
+  "CORANTE LÍQUIDO COR AZUL - FRASCO C/50ML","CORANTE LÍQUIDO COR VERMELHA - FRASCO C/50ML",
+  "CORRENTE SOLDADA ELO COMUM 6 MM GALVANIZADA","CORRENTE SOLDADA ELO COMUM 8 MM GALVANIZADA",
+  "CORRENTE SOLDADA ELO RETO CURTO GALV. BITOLA 12,5 MM",
+  "CURVA 90° 3/4\" PARA ELETRODUTO GALVANIZADO","DISPENSER PARA SABONETE LÍQUIDO COR BRANCA",
+  "ELETRODUTO GALVANIZADO 1\" X 3M LEVE",
+  "ELETRODUTO RÍGIDO DE AÇO GALVANIZADO LEVE, 200 MM (3/4), EM BARRAS DE 3 METROS",
+  "ENGATE FLEXÍVEL 1/2\" X 40 CM","ESMALTE SINTÉTICO BRILHANTE PANTONE 328C (GALÃO)",
+  "ESMALTE SINTÉTICO BRILHANTE PANTONE 444C (GALÃO)",
+  "EXTENSOR DE ALUMÍNIO COMP. 2,70 M P/ PINTURA",
+  "FECHADURA EXTERNA PARA PORTA DE MADEIRA, COM TAMBOR, ACABEMENTO C/ESPELHO CROMADO, MEDIDA DA MÁQUINA 40MM",
+  "FITA AUTO FUSÃO 19MM X 10 M","FITA ISOLANTE - 19MM X 20M",
+  "FUNDO ANTI-CORROSIVO, COR GRAFITE, P/ ESMALTE SINTÉTICO",
+  "FUNDO BRANCO PARA METAIS GALVANIZADOS - GALÃO 3,6 LITROS",
+  "GRELHA REDONDA P/ RALO EM PLÁSTICO 100 MM","GRELHA REDONDA P/ RALO EM PLÁSTICO 150 MM",
+  "JOELHO 90º SOLDÁVEL 32 MM","LÂMPADA FLUORESCENTE - 40 W","LÂMPADA LED - 10W T8",
+  "LÂMPADA LED - 18W T8","LÂMPADA MISTA 250 W - E27 - 220 V",
+  "LATEX ACRÍLICO FOSCO PANTONE 114C (LATA)","LATEX ACRÍLICO FOSCO PANTONE 328C (LATA)",
+  "LIXA PARA MASSA Nº 120","LIXA PARA MASSA Nº 150","LIXA PARA MASSA Nº 180","LIXA PARA MASSA Nº 220",
+  "LONA PLÁSTICA PRETA - 8 X 100 - 110 MICRAS -PESO APROXIMADO ROLO 60KG",
+  "LUMINÁRIA DE EMERGÊNCIA P/ 2 LÂMPADAS - BATERIA 6 V",
+  "LUMINÁRIA DE SOBREPOR PARA LÂMPADA FLUORESCENTE TUBULAR 2 X 32/40 WATTS",
+  "LUMINÁRIA DE SOBREPOR PARA LÂMPADA FLUORESCENTE TUBULAR 4 X 32/40 WATTS",
+  "LUVA SOLDÁVEL 25 MM","LUVA SOLDÁVEL 32 MM",
+  "MANTA ASFÁLTICA ADESIVA COM A LUMÍNIO 20CM X 10 METROS",
+  "MANTA ASFÁLTICA ADESIVA COM A LUMÍNIO 30CM X 10 METROS",
+  "MANTA ASFÁLTICA ADESIVA COM A LUMÍNIO 50CM X 10 METROS",
+  "MASSA CORRIDA - PVA -BRANCA - LATA 18 LITROS",
+  "OBTURADOR DE SAÍDA DE ÁGUA PARA CAIXA ACOPLADA MODELO UNIVERSAL",
+  "PARAFUSO CABEÇA FRANCESA 5/16 X 3' C/ PORCA ARRUELA",
+  "PINCEL 1.1/2\" SIMPLES","PINCEL 1\" SIMPLES","PINCEL 2.1/2\" DUPLO","PINCEL 2.1/2\" SIMPLES",
+  "PINCEL 2\" DUPLO","PINCEL 2\" SIMPLES","PINCEL 3\" DUPLO","PINCEL 3\" SIMPLES","PINCEL DE 100 MM",
+  "QUADRO DE DISTRIBUIÇÃO TRIFÁSICO EM PVC PARA EMBUTIR PARA 12 DISJUNTORES MODELO DIN COM BARRAMENTO PARA 80A",
+  "REGISTRO DE ESFERA EM PVC ROSCÁVEL 1\"",
+  "RESINA ACRÍLICA PARA PEDRA - GALÃO 3600 ML",
+  "ROLO DE ESPUMA P/ PINTURA, 5 CM, COMPLETO, EM POLIESTER",
+  "ROLO DE ESPUMA P/ PINTURA,23 CM, COMPLETO",
+  "ROLO DE LÃ DE CARNEIRO 15 CM COM CABO","ROLO DE LÃ DE CARNEIRO 18 CM COM CABO",
+  "ROLO DE LÃ DE CARNEIRO 23 CM COM CABO","ROLO DE LÃ DE CARNEIRO 9 CM COM CABO",
+  "SILICONE PARA VEDAÇÃO 280 GRAMAS ACÉTICO INCOLOR (VEDAÇÃO PARA PIAS, VASOS, JANELAS, PORTAS)",
+  "SOQUETE SIMPLES PARA LÂMPADA FLUORESCENTE COM PARAFUSO",
+  "TAMPA PARA CONDULETE MULTIPLO 1\" C/ 3/4\" FURO P/ TOMADA HORIZONTAL",
+  "TAMPA PARA CONDULETE MULTIPLO 1\" CEGA",
+  "TELA FABRICADA EM PVC, COR LARANJA (RL X 1,20 M) -TAPUME","THINNER - LATA C/ 900ML",
+  "TINTA ACRÍLICA FOSCO ALTA RESISTÊNCIA P/ PISO, AMARELA -18L",
+  "TINTA ACRÍLICA FOSCO ALTA RESISTÊNCIA P/ PISO, AZUL-18L",
+  "TINTA ACRÍLICA FOSCO ALTA RESISTÊNCIA P/ PISO, BRANCA -18L",
+  "TINTA ACRÍLICA FOSCO ALTA RESISTÊNCIA P/ PISO, CINZA-18L",
+  "TINTA ACRÍLICA FOSCO ALTA RESISTÊNCIA P/ PISO, CONCRETO-18L",
+  "TINTA ACRÍLICA FOSCO ALTA RESISTÊNCIA P/ PISO, VERMELHA-18L",
+  "TINTA ESMALTE SINTÉTICO - COR BRANCA - GALÃO 3,6 LITROS",
+  "TINTA ESMALTE SINTÉTICO - COR PRETA - 3,6 LITROS",
+  "TINTA ESMALTE SINTÉTICO - COR VERMELHA - 3,6 LITROS",
+  "TINTA ESMALTE SINTÉTICO COR ALUMÍNIO -GALÃO 3,6 LITROS",
+  "TINTA ESMALTE SINTÉTICO COR AZUL DEL REY -GALÃO 3,6 LITROS",
+  "TINTA LATEX ACRÍLICA FOSCO COR AMARELO CANÁRIO/VANILLA 18 L- LATA 18 LITROS",
+  "TINTA LATEX ACRÍLICA FOSCO COR AREIA - LATA 18 LITROS",
+  "TINTA LATEX ACRÍLICA FOSCO COR AZUL LATA 18 LITROS",
+  "TINTA LATEX ACRÍLICA FOSCO COR BRANCO GELO - LATA 18 LITROS",
+  "TINTA LATEX ACRÍLICA FOSCO COR BRANCO NEVE - LATA 18 LITROS",
+  "TINTA LATEX ACRÍLICA FOSCO COR CAMURÇA LATA 18 LITROS",
+  "TINTA LATEX ACRÍLICA FOSCO COR CONCRETO LATA 18 LITROS",
+  "TINTA LATEX ACRÍLICA FOSCO COR MARFIM - LATA 18 LITROS",
+  "TINTA LATEX ACRÍLICA FOSCO COR OCRE LATA 18 LITROS",
+  "TINTA LATEX ACRÍLICA FOSCO COR PALHA - LATA 18 LITROS",
+  "TINTA LATEX ACRÍLICA FOSCO COR VERMELHA LATA 18 LITROS",
+  "TINTA LÁTEX ACRILICA, ACABAMENTO FOSCO, COR LARANJA BARCELONA - LATA 18 LITROS",
+  "TINTA LÁTEX ACRÍLICA; ACABAMENTO FOSCO; COR TERRACOTA - LATA 18 LITROS",
+  "TINTA PARA FERRO COR GRAFITE ESCURO - GALÃO 3600 ML",
+  "TINTA SELADORA PARA MADEIRA - GALÃO 3,6 LITROS",
+  "TOMADA 2P + T C/ PLACA 4 X 2 CINZA","TOMADA SISTEMA X 2P + T 10 A - 250 V COMPLETA",
+  "TORNEIRA BICA ALTA E MÓVEL, ELÉTRICA - 220 VOLTS",
+  "TORNEIRA BICA MÓVEL PARA PIA 1/2\" - MESA","TORNEIRA CLÍNICA ALAVANCA DE MESA OU BANCADA",
+  "TORNEIRA PARA PIA BICA MÓVEL COM ACABAMENTO 3/4\" METÁLICA",
+  "TRINCHA - 2.1/2\" (500)","TRINCHA DE 3\"",
+  "TUBO DE ESGOTO 6 M X DN 150 MM","TUBO DE ESGOTO 6 M X DN 75 MM",
+  "TUBO DE PVC ESGOTO 40 MM X 6,0 M","TUBO DE PVC ESGOTO 50 MM X 6 M",
+  "TUBO DE PVC SOLDÁVEL 6 M X 25 MM","TUBO DE PVC SOLDÁVEL 6 M X 32 MM",
+  "TUBO DE PVC SOLDÁVEL 6 M X 50 MM",
+  "UNIÃO SOLDÁVEL 25 MM","UNIÃO SOLDÁVEL 32 MM","UNIÃO SOLDÁVEL 40 MM",
+  "UNIDUT CÔNICO 3/4\" C/ NERVURA","UNIDUT MULTIPLO 1\"","UNIDUT RETO 1\" C/NERVURA","UNIDUTE 3/4\" RETO",
+  "VÁLVULA PARA PIA AMERICANA DN 40 (1.1/2\") METÁLICA",
+  "JOELHO 90º PARA ESGOTO DN 75MM","JOELHO 90º PARA ESGOTO DN 100MM",
+  "VÁLVULA PARA LAVATÓRIO/TANQUE, EM PLÁSTICO 1\"",
+  "LUVA SOLDÁVEL E COM ROSCA 25X3/4","TÊ SOLDÁVEL E COM ROSCA 25X3/4",
+  "LUVA SOLDÁVEL E COM BUCHA DE LATÃO 25X3/4","PLUG ROSCÁVEL 1/2'",
+  "REGISTRO DE ESFERA EM PVC SOLDÁVEL 25MM","REGISTRO DE ESFERA EM PVC SOLDÁVEL 32MM",
+  "REGISTRO DE ESFERA EM PVC SOLDÁVEL 40 MM","TE ESGOTO 50 MM SIMPLES PVC",
+  "CAP DE 40 MM PARA ESGOTO","KIT COMPLETO PARA CAIXA ACOPLADA","APLICADOR DE SILICONE",
+  "BUCHA 6MM COM PARAFUSO","BUCHA 8MM COM PARAFUSO","BUCHA DRYWALL COM PARAFUSO",
+  "MASSA PLÁSTICA - LATA COM 500 GR","FITA VEDA ROSCA 12MM",
+  "REPARO DE TORNEIRA 1/2","REPARO DE TORNEIRA 3/4"
+];
+
+window.filtrarMateriais = (q) => {
+  const dd = document.getElementById('mat-dropdown');
+  if (!q || q.length < 2) { dd.className='mat-dropdown'; return; }
+  const res = LISTA_MATERIAIS.filter(m => m.toLowerCase().includes(q.toLowerCase())).slice(0,10);
+  if (!res.length) { dd.className='mat-dropdown'; return; }
+  dd.innerHTML = res.map(m=>`<div class="mat-dropdown-item" onclick="selecionarMaterial('${m.replace(/'/g,"&#39;")}')">${m}</div>`).join('');
+  dd.className = 'mat-dropdown visible';
+};
+
+window.selecionarMaterial = (nome) => {
+  document.getElementById('inp-mat-selecionado').value = nome;
+  document.getElementById('inp-mat-busca').value = nome;
+  document.getElementById('mat-dropdown').className = 'mat-dropdown';
+  document.getElementById('inp-mat-qtd').focus();
+};
+
+window.handleMatKey = (e) => {
+  if (e.key === 'Escape') document.getElementById('mat-dropdown').className = 'mat-dropdown';
+};
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.mat-search-wrap')) {
+    const dd = document.getElementById('mat-dropdown');
+    if (dd) dd.className = 'mat-dropdown';
+  }
+});
+
+const sel = document.getElementById('sel-unidade');
+UNITS.forEach(u => { const o = document.createElement('option'); o.value = u; o.textContent = u; sel.appendChild(o); });
+
+function pad(n,w){ return String(n).padStart(w,'0'); }
+function formatDate(ts){ const d=new Date(ts); return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+function formatDateShort(ts){ return new Date(ts).toLocaleDateString('pt-BR'); }
+
+window.selectUrgency = (v) => {
+  currentUrgency = v;
+  document.getElementById('opt-normal').className = 'radio-opt'+(v==='normal'?' selected-normal':'');
+  document.getElementById('opt-urgente').className = 'radio-opt'+(v==='urgente'?' selected-urgent':'');
+};
+
+window.submitTicket = async () => {
+  const unidade = document.getElementById('sel-unidade').value;
+  const solicitante = document.getElementById('inp-solicitante').value.trim();
+  const descricao = document.getElementById('inp-descricao').value.trim();
+  if (!unidade) { alert('Selecione sua unidade de saúde.'); return; }
+  if (!solicitante) { alert('Informe o nome do solicitante.'); return; }
+  if (!descricao) { alert('Descreva o problema.'); return; }
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  try {
+    const num = '#'+pad(allTickets.length+1,6);
+    lastProtocolo = num;
+    await addDoc(collection(db,'chamados'), {
+      num, unidade, solicitante, descricao,
+      urgencia: currentUrgency, status: 'aberto',
+      materiais: [], obsMateria: '',
+      criado: Date.now(), iniciadoEm: null, concluidoEm: null
+    });
+    document.getElementById('success-ticket-num').textContent = num;
+    document.getElementById('inp-descricao').value = '';
+    document.getElementById('inp-solicitante').value = '';
+    document.getElementById('sel-unidade').value = '';
+    selectUrgency('normal');
+    window.showScreen('success');
+  } catch(e) { alert('Erro ao salvar: '+e.message); }
+  btn.disabled = false; btn.textContent = 'Enviar Chamado';
+};
+
+window.goConsultarProtocolo = () => {
+  document.getElementById('inp-protocolo').value = lastProtocolo;
+  window.showScreen('consulta');
+  consultarChamado();
+};
+
+// LISTENER TEMPO REAL
+const q = query(collection(db,'chamados'), orderBy('criado','desc'));
+onSnapshot(q, (snapshot) => {
+  allTickets = [];
+  snapshot.forEach(d => allTickets.push({ firebaseId: d.id, ...d.data() }));
+  document.getElementById('kpi-total').textContent = allTickets.length;
+  document.getElementById('kpi-urgent').textContent = allTickets.filter(t=>t.urgencia==='urgente').length;
+  document.getElementById('kpi-open').textContent = allTickets.filter(t=>t.status==='aberto').length;
+  document.getElementById('kpi-done').textContent = allTickets.filter(t=>t.status==='concluido').length;
+  renderList();
+  // Atualiza resultado da consulta se estiver visível
+  const res = document.getElementById('consulta-result');
+  if (res.classList.contains('visible')) {
+    const proto = document.getElementById('inp-protocolo').value.trim();
+    if (proto) renderConsultaResult(proto);
+  }
+});
+
+// =====================
+// CONSULTA POR PROTOCOLO
+// =====================
+window.consultarChamado = () => {
+  let proto = document.getElementById('inp-protocolo').value.trim().toUpperCase();
+  if (!proto) { alert('Digite o número do protocolo.'); return; }
+  if (!proto.startsWith('#')) proto = '#' + proto;
+  renderConsultaResult(proto);
+};
+
+function renderConsultaResult(proto) {
+  const res = document.getElementById('consulta-result');
+  const t = allTickets.find(x => (x.num||'').toUpperCase() === proto.toUpperCase());
+
+  if (!t) {
+    res.className = 'consulta-result visible';
+    res.innerHTML = `<div class="not-found"><div class="nf-icon">🔎</div><p>Protocolo <b>${proto}</b> não encontrado.<br><small>Verifique o número e tente novamente.</small></p></div>`;
+    return;
+  }
+
+  const statusInfo = {
+    aberto:       { icon:'🟡', label:'Aguardando atendimento', cls:'aberto',       desc:'Seu chamado foi recebido e está na fila de atendimento.' },
+    em_andamento: { icon:'🔵', label:'Em Andamento',           cls:'em_andamento', desc:'A equipe de manutenção já está trabalhando neste chamado.' },
+    concluido:    { icon:'🟢', label:'Concluído',              cls:'concluido',     desc:'O serviço foi realizado e o chamado foi encerrado.' }
+  };
+  const si = statusInfo[t.status] || statusInfo.aberto;
+
+  // Duração total abertura → conclusão
+  const duracaoTotal = t.concluidoEm ? calcDuracao(t.criado, t.concluidoEm) : null;
+
+  // Mensagem de serviço complementar (só quando concluído)
+  const msgComplementar = t.status === 'concluido' ? `
+    <div style="margin-top:16px;padding:14px 16px;background:#FFF8E1;border:1px solid #F9C846;border-radius:10px;border-left:4px solid #F9C846;font-size:13px;color:#7A5C00;line-height:1.6">
+      ⚠️ <strong>Atenção:</strong> Caso haja a necessidade de serviço complementar, favor realizar a abertura de novo chamado.
+    </div>` : '';
+
+  // Timeline
+  const steps = [
+    { key:'aberto',       label:'Chamado registrado',       date: t.criado },
+    { key:'em_andamento', label:'Manutenção iniciada',       date: t.iniciadoEm },
+    { key:'concluido',    label:'Serviço concluído',         date: t.concluidoEm }
+  ];
+  const order = ['aberto','em_andamento','concluido'];
+  const curIdx = order.indexOf(t.status);
+
+  const tlHTML = steps.map((step, i) => {
+    const isDone = i < curIdx;
+    const isActive = i === curIdx;
+    const dotCls = isDone ? 'done' : (isActive ? 'active' : '');
+    const lineCls = isDone ? 'done' : '';
+    const dateStr = step.date ? `<div class="tl-date">${formatDate(step.date)}</div>` : (isActive||isDone ? '' : '<div class="tl-date" style="color:var(--border)">—</div>');
+    return `<div class="tl-item">
+      <div class="tl-left"><div class="tl-dot ${dotCls}"></div><div class="tl-line ${lineCls}"></div></div>
+      <div class="tl-content"><div class="tl-label" style="color:${isActive?'var(--blue)':isDone?'var(--teal)':'var(--gray-m)'}">${step.label}</div>${dateStr}</div>
+    </div>`;
+  }).join('');
+
+  const matBlock = (t.materiais&&t.materiais.length) ? `
+    <div class="status-row"><span class="lbl">Materiais</span><span class="val">${t.materiais.map(m=>(m.qtd?m.qtd+'x ':'')+m.nome).join(', ')}</span></div>
+    ${t.obsMateria?`<div class="status-row"><span class="lbl">Observação</span><span class="val">${t.obsMateria}</span></div>`:''}` : '';
+
+  res.className = 'consulta-result visible';
+  res.innerHTML = `
+    <div class="status-card">
+      <div class="status-card-header ${si.cls}">
+        <div class="status-icon">${si.icon}</div>
+        <div>
+          <div class="status-title">${si.label}</div>
+          <div class="status-subtitle">${si.desc}</div>
+        </div>
+      </div>
+      <div class="status-card-body">
+        <div class="status-row"><span class="lbl">Protocolo</span><span class="val"><b>${t.num}</b></span></div>
+        <div class="status-row"><span class="lbl">Unidade</span><span class="val">${t.unidade}</span></div>
+        <div class="status-row"><span class="lbl">Solicitante</span><span class="val">${t.solicitante}</span></div>
+        <div class="status-row"><span class="lbl">Descrição</span><span class="val">${t.descricao}</span></div>
+        <div class="status-row"><span class="lbl">Urgência</span><span class="val"><span class="badge ${t.urgencia==='urgente'?'badge-urgent':'badge-normal'}">${t.urgencia==='urgente'?'🔴 URGENTE':'🔵 Normal'}</span></span></div>
+        <div class="status-row"><span class="lbl">Abertura</span><span class="val">${formatDate(t.criado)}</span></div>
+        ${t.iniciadoEm ? `<div class="status-row"><span class="lbl">Iniciado em</span><span class="val">${formatDate(t.iniciadoEm)}</span></div>` : ''}
+        ${t.concluidoEm ? `<div class="status-row"><span class="lbl">Concluído em</span><span class="val">${formatDate(t.concluidoEm)}</span></div>` : ''}
+        ${duracaoTotal ? `<div class="status-row"><span class="lbl">Duração total</span><span class="val"><span style="background:var(--amber-l);color:var(--amber);padding:2px 10px;border-radius:10px;font-weight:700">⏱ ${duracaoTotal}</span></span></div>` : ''}
+        ${matBlock}
+        <div class="status-timeline">
+          <h4>Histórico do chamado</h4>
+          <div class="tl">${tlHTML}</div>
+        </div>
+        ${msgComplementar}
+      </div>
+    </div>`;
+}
+
+// =====================
+// DASHBOARD
+// =====================
+window.setFilter = (f, btn) => {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderList();
+};
+
+function calcDuracao(inicio, fim) {
+  if (!inicio) return null;
+  const diff = (fim || Date.now()) - inicio;
+  const mins = Math.floor(diff / 60000);
+  const horas = Math.floor(mins / 60);
+  const dias = Math.floor(horas / 24);
+  if (dias > 0) return `${dias}d ${horas % 24}h`;
+  if (horas > 0) return `${horas}h ${mins % 60}min`;
+  return `${mins}min`;
+}
+
+function renderList() {
+  let list = [...allTickets];
+  if (currentFilter==='urgente') list = list.filter(t=>t.urgencia==='urgente');
+  else if (currentFilter!=='todos') list = list.filter(t=>t.status===currentFilter);
+  list.sort((a,b)=>{
+    if(a.urgencia==='urgente'&&b.urgencia!=='urgente') return -1;
+    if(b.urgencia==='urgente'&&a.urgencia!=='urgente') return 1;
+    return b.criado-a.criado;
+  });
+  const cont = document.getElementById('ticket-list');
+  if (!list.length) { cont.innerHTML = '<div class="empty-state"><div class="ei">📭</div>Nenhum chamado encontrado.</div>'; return; }
+  const statusLabel = {aberto:'Aberto', em_andamento:'Em Andamento', concluido:'Concluído'};
+  const statusClass = {aberto:'badge-open', em_andamento:'badge-progress', concluido:'badge-done'};
+  cont.innerHTML = list.map(t => {
+    const btnIniciar = t.status==='aberto' ? `<button class="tc-btn tc-btn-progress" onclick="updateStatus('${t.firebaseId}','em_andamento')">▶ Iniciar</button>` : '';
+    const btnConcluir = t.status!=='concluido' ? `<button class="tc-btn tc-btn-done" onclick="updateStatus('${t.firebaseId}','concluido')">✓ Concluir</button>` : '';
+    const btnMat = `<button class="tc-btn tc-btn-material" onclick="openMateriais('${t.firebaseId}')">🔧 ${t.materiais&&t.materiais.length?'Ver/Editar Materiais':'Registrar Materiais'}</button>`;
+    const matBlock = (t.materiais&&t.materiais.length) ? `
+      <div class="tc-materiais"><strong>🔧 Materiais utilizados</strong>
+      ${t.materiais.map(m=>`${m.qtd?'<b>'+m.qtd+'x</b> ':''}${m.nome}`).join(' · ')}
+      ${t.obsMateria?`<div style="margin-top:4px;opacity:.8">${t.obsMateria}</div>`:''}</div>` : '';
+
+    // Datas e duração
+    const duracaoTotal = t.concluidoEm ? calcDuracao(t.criado, t.concluidoEm) : (t.iniciadoEm ? calcDuracao(t.criado) : null);
+    const datasBlock = `
+      <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;font-size:11px;color:var(--text2)">
+        <span>📅 Abertura: <b>${formatDate(t.criado)}</b></span>
+        ${t.iniciadoEm ? `<span>▶ Iniciado: <b>${formatDate(t.iniciadoEm)}</b></span>` : ''}
+        ${t.concluidoEm ? `<span>✅ Concluído: <b>${formatDate(t.concluidoEm)}</b></span>` : ''}
+        ${duracaoTotal ? `<span style="background:var(--amber-l);color:var(--amber);padding:2px 8px;border-radius:10px;font-weight:600">⏱ Duração total: ${duracaoTotal}</span>` : ''}
+      </div>`;
+
+    return `<div class="ticket-card${t.urgencia==='urgente'?' urgent':''}">
+      <div class="tc-top">
+        <div class="tc-id">${t.num||'—'}</div>
+        <div class="tc-body">
+          <div class="tc-unit">${t.unidade}</div>
+          <div class="tc-desc">${t.descricao}</div>
+          <div class="tc-meta">
+            <span class="badge ${t.urgencia==='urgente'?'badge-urgent':'badge-normal'}">${t.urgencia==='urgente'?'🔴 URGENTE':'🔵 Normal'}</span>
+            <span class="badge ${statusClass[t.status]}">${statusLabel[t.status]}</span>
+            <span class="tc-time">👤 ${t.solicitante}</span>
+          </div>
+          ${datasBlock}
+          ${matBlock}
+          <div class="tc-actions">${btnIniciar}${btnConcluir}${btnMat}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.updateStatus = async (firebaseId, status) => {
+  const extra = {};
+  if (status === 'em_andamento') extra.iniciadoEm = Date.now();
+  if (status === 'concluido') extra.concluidoEm = Date.now();
+  try { await updateDoc(doc(db,'chamados',firebaseId), { status, ...extra }); }
+  catch(e) { alert('Erro: '+e.message); }
+};
+
+// =====================
+// MATERIAIS
+// =====================
+window.openMateriais = (firebaseId) => {
+  matTicketId = firebaseId;
+  const t = allTickets.find(x => x.firebaseId===firebaseId);
+  if (!t) return;
+  matTemp = t.materiais ? [...t.materiais] : [];
+  document.getElementById('mat-ticket-info').innerHTML = `<b>${t.num||''}</b> — ${t.unidade}<br><span style="color:var(--text2)">${t.descricao}</span>`;
+  document.getElementById('inp-mat-obs').value = t.obsMateria||'';
+  document.getElementById('inp-mat-busca').value = '';
+  document.getElementById('inp-mat-qtd').value = '';
+  renderMatList();
+  document.getElementById('modal-materiais').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('inp-mat-busca').focus(),100);
+};
+window.closeMateriais = () => { document.getElementById('modal-materiais').classList.add('hidden'); matTicketId=null; matTemp=[]; };
+function renderMatList() {
+  const el = document.getElementById('mat-list');
+  if (!matTemp.length) { el.innerHTML = '<div class="mat-empty">Nenhum material adicionado ainda.</div>'; return; }
+  el.innerHTML = matTemp.map((m,i)=>`<div class="mat-item"><span class="mat-nome">${m.nome}</span><span class="mat-qtd">${m.qtd||'—'}</span><button class="mat-del" onclick="removeMaterial(${i})">✕</button></div>`).join('');
+}
+window.addMaterial = () => {
+  const nome = document.getElementById('inp-mat-selecionado').value.trim();
+  const qtd = document.getElementById('inp-mat-qtd').value.trim();
+  if (!nome) { document.getElementById('inp-mat-busca').focus(); return; }
+  matTemp.push({nome,qtd});
+  document.getElementById('inp-mat-selecionado').value = '';
+  document.getElementById('inp-mat-busca').value = '';
+  document.getElementById('inp-mat-qtd').value = '';
+  document.getElementById('inp-mat-busca').focus();
+  renderMatList();
+};
+window.removeMaterial = (i) => { matTemp.splice(i,1); renderMatList(); };
+window.salvarMateriais = async () => {
+  if (!matTicketId) return;
+  try {
+    await updateDoc(doc(db,'chamados',matTicketId), { materiais:[...matTemp], obsMateria:document.getElementById('inp-mat-obs').value.trim() });
+    window.closeMateriais();
+  } catch(e) { alert('Erro: '+e.message); }
+};
+
+// =====================
+// RELATÓRIO
+// =====================
+function popularAnos() {
+  const sel = document.getElementById('rpt-ano');
+  if (!sel) return;
+  const anoAtual = new Date().getFullYear();
+  sel.innerHTML = '<option value="todos">Todos os anos</option>';
+  for (let a = 2025; a <= 2035; a++) {
+    const o = document.createElement('option');
+    o.value = a; o.textContent = a;
+    if (a === anoAtual) o.selected = true;
+    sel.appendChild(o);
+  }
+}
+
+function filterForReport(all) {
+  const mes = document.getElementById('rpt-mes').value;
+  const ano = document.getElementById('rpt-ano').value;
+  const status = document.getElementById('rpt-status').value;
+  const urgencia = document.getElementById('rpt-urgencia').value;
+  return all.filter(t => {
+    const d = new Date(t.criado);
+    if (mes !== 'todos' && (d.getMonth()+1) !== parseInt(mes)) return false;
+    if (ano !== 'todos' && d.getFullYear() !== parseInt(ano)) return false;
+    if (status !== 'todos' && t.status !== status) return false;
+    if (urgencia !== 'todos' && t.urgencia !== urgencia) return false;
+    return true;
+  });
+}
+
+function nomeMes(m) {
+  return ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][m-1]||'';
+}
+
+window.openRelatorio = () => {
+  popularAnos();
+  document.getElementById('modal-relatorio').classList.remove('hidden');
+  renderPreview();
+};
+window.closeRelatorio = () => document.getElementById('modal-relatorio').classList.add('hidden');
+window.renderPreview = () => {
+  const filtered=filterForReport(allTickets);
+  const mes=document.getElementById('rpt-mes').value;
+  const ano=document.getElementById('rpt-ano').value;
+  const total=filtered.length,urgentes=filtered.filter(t=>t.urgencia==='urgente').length;
+  const abertos=filtered.filter(t=>t.status==='aberto').length,concluidos=filtered.filter(t=>t.status==='concluido').length;
+  const now=new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const periodoLabel = mes==='todos' ? (ano==='todos'?'Todos os períodos':ano) : (ano==='todos'?nomeMes(parseInt(mes)):nomeMes(parseInt(mes))+' / '+ano);
+  const statusLabel={aberto:'Aberto',em_andamento:'Em Andamento',concluido:'Concluído'};
+  const sorted=[...filtered].sort((a,b)=>{if(a.urgencia==='urgente'&&b.urgencia!=='urgente')return -1;if(b.urgencia==='urgente'&&a.urgencia!=='urgente')return 1;return b.criado-a.criado;});
+  const rows=sorted.map(t=>{
+    const mats = t.materiais&&t.materiais.length ? t.materiais.map(m=>(m.qtd?m.qtd+'x ':'')+m.nome).join(', ') : '—';
+    const obs = t.obsMateria || '—';
+    const dataConclusao = t.concluidoEm ? formatDateShort(t.concluidoEm) : '—';
+    return `<tr class="${t.urgencia==='urgente'?'row-urgent':''}"><td>${t.num||'—'}</td><td style="font-size:11px">${t.unidade}</td><td style="font-size:11px">${t.descricao}</td><td style="font-weight:${t.urgencia==='urgente'?700:400}">${t.urgencia==='urgente'?'URGENTE':'Normal'}</td><td>${statusLabel[t.status]}</td><td>${formatDateShort(t.criado)}</td><td>${dataConclusao}</td><td style="font-size:11px">${t.solicitante}</td><td style="font-size:11px;color:var(--teal)">${mats}</td><td style="font-size:11px;color:var(--text2)">${obs}</td></tr>`;
+  }).join('');
+  document.getElementById('report-preview').innerHTML=`<div class="rpt-header"><h2>Relatório de Chamados de Manutenção</h2><p>Secretaria Municipal de Saúde e Bem-Estar &nbsp;|&nbsp; ${periodoLabel} &nbsp;|&nbsp; Gerado em ${now}</p></div><div class="rpt-kpis"><div class="rpt-kpi"><div class="val" style="color:var(--blue)">${total}</div><div class="lbl">Total</div></div><div class="rpt-kpi"><div class="val" style="color:var(--red)">${urgentes}</div><div class="lbl">Urgentes</div></div><div class="rpt-kpi"><div class="val" style="color:var(--amber)">${abertos}</div><div class="lbl">Abertos</div></div><div class="rpt-kpi"><div class="val" style="color:var(--green)">${concluidos}</div><div class="lbl">Concluídos</div></div></div>${total===0?'<div style="text-align:center;padding:24px;color:var(--text2)">Nenhum chamado encontrado para este período.</div>':`<table class="rpt-table"><thead><tr><th>Nº</th><th>Unidade</th><th>Problema</th><th>Urgência</th><th>Status</th><th>Abertura</th><th>Conclusão</th><th>Solicitante</th><th>Materiais</th><th>Observação</th></tr></thead><tbody>${rows}</tbody></table>`}`;
+};
+window.imprimirRelatorio = () => {
+  const filtered=filterForReport(allTickets);
+  const mes=document.getElementById('rpt-mes').value;
+  const ano=document.getElementById('rpt-ano').value;
+  const total=filtered.length,urgentes=filtered.filter(t=>t.urgencia==='urgente').length;
+  const abertos=filtered.filter(t=>t.status==='aberto').length,concluidos=filtered.filter(t=>t.status==='concluido').length;
+  const now=new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const periodoLabel = mes==='todos' ? (ano==='todos'?'Todos os períodos':ano) : (ano==='todos'?nomeMes(parseInt(mes)):nomeMes(parseInt(mes))+' / '+ano);
+  const statusLabel={aberto:'Aberto',em_andamento:'Em Andamento',concluido:'Concluído'};
+  const sorted=[...filtered].sort((a,b)=>{if(a.urgencia==='urgente'&&b.urgencia!=='urgente')return -1;if(b.urgencia==='urgente'&&a.urgencia!=='urgente')return 1;return b.criado-a.criado;});
+  const rows=sorted.map(t=>{
+    const mats = t.materiais&&t.materiais.length ? t.materiais.map(m=>(m.qtd?m.qtd+'x ':'')+m.nome).join(', ') : '—';
+    const obs = t.obsMateria || '—';
+    const dataConclusao = t.concluidoEm ? formatDateShort(t.concluidoEm) : '—';
+    return `<tr style="background:${t.urgencia==='urgente'?'#fff0ee':'#fff'}"><td style="padding:7px 8px;border-bottom:1px solid #e5e5e0">${t.num||'—'}</td><td style="padding:7px 8px;border-bottom:1px solid #e5e5e0;font-size:11px">${t.unidade}</td><td style="padding:7px 8px;border-bottom:1px solid #e5e5e0;font-size:11px">${t.descricao}</td><td style="padding:7px 8px;border-bottom:1px solid #e5e5e0;font-weight:${t.urgencia==='urgente'?'bold':'normal'};color:${t.urgencia==='urgente'?'#a32d2d':'#333'}">${t.urgencia==='urgente'?'URGENTE':'Normal'}</td><td style="padding:7px 8px;border-bottom:1px solid #e5e5e0">${statusLabel[t.status]}</td><td style="padding:7px 8px;border-bottom:1px solid #e5e5e0">${formatDateShort(t.criado)}</td><td style="padding:7px 8px;border-bottom:1px solid #e5e5e0">${dataConclusao}</td><td style="padding:7px 8px;border-bottom:1px solid #e5e5e0;font-size:11px">${t.solicitante}</td><td style="padding:7px 8px;border-bottom:1px solid #e5e5e0;font-size:11px;color:#0F6E56">${mats}</td><td style="padding:7px 8px;border-bottom:1px solid #e5e5e0;font-size:11px;color:#555">${obs}</td></tr>`;
+  }).join('');
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório ${periodoLabel} — SMS</title><style>@page{size:A4 landscape;margin:15mm}@media print{.no-print{display:none!important}body{padding:0}}body{font-family:Arial,sans-serif;font-size:13px;color:#222;padding:24px}.header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #185FA5}.header h1{font-size:17px;margin:0 0 4px;color:#185FA5}.header p{font-size:12px;color:#666;margin:0}.kpis{display:flex;gap:14px;margin-bottom:20px}.kpi{border:1px solid #ddd;border-radius:8px;padding:10px 20px;text-align:center}.kpi .v{font-size:22px;font-weight:bold}.kpi .l{font-size:11px;color:#888}table{width:100%;border-collapse:collapse;font-size:11px}th{background:#185FA5;color:white;text-align:left;padding:8px;font-size:10px;text-transform:uppercase}.footer{margin-top:24px;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:10px;text-align:center}.btn-print{margin-bottom:20px;padding:10px 24px;background:#185FA5;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer}</style></head><body><button class="btn-print no-print" onclick="window.print()">🖨 Imprimir / Salvar como PDF</button><div class="header"><div><h1>Relatório de Chamados de Manutenção — ${periodoLabel}</h1><p>Secretaria Municipal de Saúde e Bem-Estar — Divisão de Manutenção</p></div><div style="font-size:11px;color:#888;text-align:right">Gerado em<br><strong>${now}</strong></div></div><div class="kpis"><div class="kpi"><div class="v" style="color:#185FA5">${total}</div><div class="l">Total</div></div><div class="kpi"><div class="v" style="color:#a32d2d">${urgentes}</div><div class="l">Urgentes</div></div><div class="kpi"><div class="v" style="color:#854F0B">${abertos}</div><div class="l">Em Aberto</div></div><div class="kpi"><div class="v" style="color:#3B6D11">${concluidos}</div><div class="l">Concluídos</div></div></div>${total===0?'<p style="color:#888;text-align:center;padding:30px">Nenhum chamado encontrado para este período.</p>':`<table><thead><tr><th>Nº</th><th>Unidade de Saúde</th><th>Descrição</th><th>Urgência</th><th>Status</th><th>Abertura</th><th>Conclusão</th><th>Solicitante</th><th>Materiais Utilizados</th><th>Observação do Atendimento</th></tr></thead><tbody>${rows}</tbody></table>`}<div class="footer">Secretaria Municipal de Saúde e Bem-Estar — Sistema de Chamados de Manutenção &nbsp;|&nbsp; ${periodoLabel} &nbsp;|&nbsp; ${now}</div></body></html>`;
+  const w=window.open('','_blank');
+  if(w){w.document.write(html);w.document.close();setTimeout(()=>w.print(),500);}
+  else{alert('Permita popups no navegador para abrir o relatório.');}
+};
+// =====================
+// CONSUMO DE MATERIAIS
+// =====================
+window.openConsumo = () => {
+  // popular anos
+  const sel = document.getElementById('con-ano');
+  const anoAtual = new Date().getFullYear();
+  sel.innerHTML = '<option value="todos">Todos os anos</option>';
+  for (let a=2025;a<=2035;a++){const o=document.createElement('option');o.value=a;o.textContent=a;if(a===anoAtual)o.selected=true;sel.appendChild(o);}
+  // selecionar mês atual
+  document.getElementById('con-mes').value = String(new Date().getMonth()+1);
+  document.getElementById('modal-consumo').classList.remove('hidden');
+  renderConsumo();
+};
+window.closeConsumo = () => document.getElementById('modal-consumo').classList.add('hidden');
+
+window.renderConsumo = () => {
+  const mes = document.getElementById('con-mes').value;
+  const ano = document.getElementById('con-ano').value;
+  const filtered = allTickets.filter(t => {
+    const d = new Date(t.criado);
+    if (mes!=='todos'&&(d.getMonth()+1)!==parseInt(mes)) return false;
+    if (ano!=='todos'&&d.getFullYear()!==parseInt(ano)) return false;
+    return true;
+  });
+  // contar materiais
+  const contagem = {};
+  filtered.forEach(t => {
+    if (!t.materiais||!t.materiais.length) return;
+    t.materiais.forEach(m => {
+      const key = m.nome.trim().toUpperCase();
+      const qtd = parseFloat(m.qtd)||1;
+      contagem[key] = (contagem[key]||0) + qtd;
+    });
+  });
+  const itens = Object.entries(contagem).sort((a,b)=>b[1]-a[1]);
+  const periodoLabel = mes==='todos'?(ano==='todos'?'Todos os períodos':ano):(ano==='todos'?nomeMes(parseInt(mes)):nomeMes(parseInt(mes))+' / '+ano);
+  const prev = document.getElementById('consumo-preview');
+  if (!itens.length) {
+    prev.innerHTML=`<div style="text-align:center;padding:32px;color:var(--text2)">Nenhum material registrado para este período.</div>`;
+    return;
+  }
+  prev.innerHTML=`
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Período: <strong>${periodoLabel}</strong> — <strong>${itens.length}</strong> itens diferentes consumidos em <strong>${filtered.filter(t=>t.materiais&&t.materiais.length).length}</strong> chamados</div>
+    <table class="consumo-table">
+      <thead><tr><th>#</th><th>Material</th><th style="text-align:center">Qtd. Total</th></tr></thead>
+      <tbody>${itens.map(([nome,qtd],i)=>`<tr><td style="color:var(--text2);font-size:12px">${i+1}</td><td style="font-size:12px">${nome}</td><td style="text-align:center;font-weight:700;color:var(--teal)">${qtd}</td></tr>`).join('')}</tbody>
+    </table>`;
+};
+
+window.imprimirConsumo = () => {
+  const mes = document.getElementById('con-mes').value;
+  const ano = document.getElementById('con-ano').value;
+  const filtered = allTickets.filter(t => {
+    const d = new Date(t.criado);
+    if (mes!=='todos'&&(d.getMonth()+1)!==parseInt(mes)) return false;
+    if (ano!=='todos'&&d.getFullYear()!==parseInt(ano)) return false;
+    return true;
+  });
+  const contagem = {};
+  filtered.forEach(t => {
+    if (!t.materiais||!t.materiais.length) return;
+    t.materiais.forEach(m => {
+      const key = m.nome.trim().toUpperCase();
+      const qtd = parseFloat(m.qtd)||1;
+      contagem[key] = (contagem[key]||0) + qtd;
+    });
+  });
+  const itens = Object.entries(contagem).sort((a,b)=>b[1]-a[1]);
+  const periodoLabel = mes==='todos'?(ano==='todos'?'Todos os períodos':ano):(ano==='todos'?nomeMes(parseInt(mes)):nomeMes(parseInt(mes))+' / '+ano);
+  const now = new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const rows = itens.map(([nome,qtd],i)=>`<tr style="background:${i%2===0?'#fff':'#f9f9f7'}"><td style="padding:8px 10px;border-bottom:1px solid #eee;color:#888;font-size:11px">${i+1}</td><td style="padding:8px 10px;border-bottom:1px solid #eee;font-size:12px">${nome}</td><td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center;font-weight:700;color:#0F6E56;font-size:13px">${qtd}</td></tr>`).join('');
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Consumo de Materiais — ${periodoLabel}</title><style>@page{size:A4 portrait;margin:15mm}@media print{.no-print{display:none!important}}body{font-family:Arial,sans-serif;font-size:13px;color:#222;padding:24px}.header{margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #0F6E56}.header h1{font-size:17px;margin:0 0 4px;color:#0F6E56}.header p{font-size:12px;color:#666;margin:0}table{width:100%;border-collapse:collapse}th{background:#0F6E56;color:white;text-align:left;padding:9px 10px;font-size:11px;text-transform:uppercase}.footer{margin-top:24px;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:10px;text-align:center}.btn-print{margin-bottom:20px;padding:10px 24px;background:#0F6E56;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer}</style></head><body><button class="btn-print no-print" onclick="window.print()">🖨 Imprimir / Salvar como PDF</button><div class="header"><h1>Relatório de Consumo de Materiais — ${periodoLabel}</h1><p>Secretaria Municipal de Saúde e Bem-Estar — Divisão de Manutenção &nbsp;|&nbsp; Gerado em ${now}</p></div>${!itens.length?'<p style="color:#888;text-align:center;padding:30px">Nenhum material registrado para este período.</p>':`<table><thead><tr><th>#</th><th>Material / Peça</th><th style="text-align:center">Quantidade Total Utilizada</th></tr></thead><tbody>${rows}</tbody></table>`}<div class="footer">Secretaria Municipal de Saúde e Bem-Estar — Sistema de Chamados de Manutenção &nbsp;|&nbsp; ${periodoLabel} &nbsp;|&nbsp; ${now}</div></body></html>`;
+  const w=window.open('','_blank');
+  if(w){w.document.write(html);w.document.close();setTimeout(()=>w.print(),500);}
+  else{alert('Permita popups no navegador para abrir o relatório.');}
+};
+</script>
+</body>
+</html>
