@@ -1420,7 +1420,7 @@ function renderList() {
     const btnIniciar = t.status==='aberto' ? `<button class="tc-btn tc-btn-progress" onclick="updateStatus('${t.firebaseId}','em_andamento')">▶ Iniciar</button>` : '';
     const btnConcluir = t.status!=='concluido' ? `<button class="tc-btn tc-btn-done" onclick="updateStatus('${t.firebaseId}','concluido')">✓ Concluir</button>` : '';
     const btnMat = `<button class="tc-btn tc-btn-material" onclick="openMateriais('${t.firebaseId}')">🔧 ${t.materiais&&t.materiais.length?'Ver/Editar Materiais':'Registrar Materiais'}</button>`;
-    const btnDelete = (gestorAutenticado && t.status==='aberto')
+    const btnDelete = gestorAutenticado
       ? `<button class="tc-btn tc-btn-delete" onclick="excluirChamado('${t.firebaseId}','${t.num||''}')">🗑 Excluir</button>`
       : '';
     const matBlock = (t.materiais&&t.materiais.length) ? `
