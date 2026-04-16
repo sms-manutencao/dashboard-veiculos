@@ -573,8 +573,6 @@ let gestorAutenticado = false;
 let currentUrgency = 'normal';
 let currentFilter = 'todos';
 let allTickets = [];
-let allTicketsRaw = [];
-const PROTOCOLOS_OCULTOS = new Set(['#000014', '#000012', '#000009', '#000002', '#000001']);
 let matTicketId = null;
 let matTemp = [];
 let lastProtocolo = '';
@@ -1235,11 +1233,7 @@ window.submitTicket = async () => {
   const btn = document.getElementById('submit-btn');
   btn.disabled = true; btn.textContent = 'Enviando...';
   try {
-    const maiorNumeroExistente = allTicketsRaw.reduce((max, t) => {
-      const n = parseInt(String(t.num || '').replace(/\D/g,''), 10);
-      return Number.isFinite(n) ? Math.max(max, n) : max;
-    }, 0);
-    const num = '#'+pad(maiorNumeroExistente+1,6);
+    const num = '#'+pad(allTickets.length+1,6);
     lastProtocolo = num;
     await addDoc(collection(db,'chamados'), {
       num, unidade, solicitante, descricao,
@@ -1266,19 +1260,15 @@ window.goConsultarProtocolo = () => {
 // LISTENER TEMPO REAL
 const q = query(collection(db,'chamados'), orderBy('criado','desc'));
 onSnapshot(q, async (snapshot) => {
-  allTicketsRaw = [];
   allTickets = [];
   const correcoesConclusao = [];
   snapshot.forEach(d => {
     const ticket = { firebaseId: d.id, ...d.data() };
-    allTicketsRaw.push(ticket);
+    allTickets.push(ticket);
     if (ticket.status === 'concluido' && !ticket.concluidoEm) {
       const dataInferida = ticket.iniciadoEm || ticket.criado || Date.now();
       ticket.concluidoEm = dataInferida;
       correcoesConclusao.push(updateDoc(doc(db,'chamados', d.id), { concluidoEm: dataInferida }));
-    }
-    if (!PROTOCOLOS_OCULTOS.has(String(ticket.num || '').toUpperCase())) {
-      allTickets.push(ticket);
     }
   });
   if (correcoesConclusao.length) {
@@ -1593,7 +1583,7 @@ window.renderPreview = () => {
   const now=new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
   const periodoLabel = mes==='todos' ? (ano==='todos'?'Todos os períodos':ano) : (ano==='todos'?nomeMes(parseInt(mes)):nomeMes(parseInt(mes))+' / '+ano);
   const statusLabel={aberto:'Aberto',em_andamento:'Em Andamento',concluido:'Concluído'};
-  const sorted=[...filtered].sort((a,b)=>{if(a.urgencia==='urgente'&&b.urgencia!=='urgente')return -1;if(b.urgencia==='urgente'&&a.urgencia!=='urgente')return 1;return b.criado-a.criado;});
+  const sorted=[...filtered].sort((a,b)=>(a.criado||0)-(b.criado||0));
   const rows=sorted.map(t=>{
     const mats = t.materiais&&t.materiais.length ? t.materiais.map(m=>(m.qtd?m.qtd+'x ':'')+m.nome).join(', ') : '—';
     const obs = t.obsMateria || '—';
@@ -1611,7 +1601,7 @@ window.imprimirRelatorio = () => {
   const now=new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
   const periodoLabel = mes==='todos' ? (ano==='todos'?'Todos os períodos':ano) : (ano==='todos'?nomeMes(parseInt(mes)):nomeMes(parseInt(mes))+' / '+ano);
   const statusLabel={aberto:'Aberto',em_andamento:'Em Andamento',concluido:'Concluído'};
-  const sorted=[...filtered].sort((a,b)=>{if(a.urgencia==='urgente'&&b.urgencia!=='urgente')return -1;if(b.urgencia==='urgente'&&a.urgencia!=='urgente')return 1;return b.criado-a.criado;});
+  const sorted=[...filtered].sort((a,b)=>(a.criado||0)-(b.criado||0));
   const rows=sorted.map(t=>{
     const mats = t.materiais&&t.materiais.length ? t.materiais.map(m=>(m.qtd?m.qtd+'x ':'')+m.nome).join(', ') : '—';
     const obs = t.obsMateria || '—';
