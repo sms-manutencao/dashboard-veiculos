@@ -215,7 +215,7 @@
   .rpt-header { text-align: center; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
   .rpt-header h2 { font-size: 15px; font-weight: 700; }
   .rpt-header p { font-size: 12px; color: var(--text2); margin-top: 3px; }
-  .rpt-kpis { display: grid; grid-template-columns: repeat(5,1fr); gap: 8px; margin-bottom: 16px; }
+  .rpt-kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 16px; }
   .rpt-kpi { text-align: center; padding: 10px; border-radius: 8px; background: #fff; border: 1px solid var(--border); }
   .rpt-kpi .val { font-size: 20px; font-weight: 700; }
   .rpt-kpi .lbl { font-size: 10px; color: var(--text2); margin-top: 1px; }
@@ -1200,7 +1200,17 @@ window.selecionarMaterial = (nome) => {
 };
 
 window.handleMatKey = (e) => {
-  if (e.key === 'Escape') document.getElementById('mat-dropdown').className = 'mat-dropdown';
+  const dropdown = document.getElementById('mat-dropdown');
+  if (e.key === 'Escape' && dropdown) {
+    dropdown.className = 'mat-dropdown';
+    return;
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const first = dropdown ? dropdown.querySelector('.mat-dropdown-item') : null;
+    if (first) first.click();
+    else addMaterial();
+  }
 };
 
 document.addEventListener('click', (e) => {
@@ -1259,25 +1269,9 @@ window.goConsultarProtocolo = () => {
 
 // LISTENER TEMPO REAL
 const q = query(collection(db,'chamados'), orderBy('criado','desc'));
-onSnapshot(q, async (snapshot) => {
+onSnapshot(q, (snapshot) => {
   allTickets = [];
-  const correcoesConclusao = [];
-  snapshot.forEach(d => {
-    const ticket = { firebaseId: d.id, ...d.data() };
-    allTickets.push(ticket);
-    if (ticket.status === 'concluido' && !ticket.concluidoEm) {
-      const dataInferida = ticket.iniciadoEm || ticket.criado || Date.now();
-      ticket.concluidoEm = dataInferida;
-      correcoesConclusao.push(updateDoc(doc(db,'chamados', d.id), { concluidoEm: dataInferida }));
-    }
-  });
-  if (correcoesConclusao.length) {
-    try {
-      await Promise.all(correcoesConclusao);
-    } catch (e) {
-      console.error('Erro ao corrigir datas de conclusão:', e);
-    }
-  }
+  snapshot.forEach(d => allTickets.push({ firebaseId: d.id, ...d.data() }));
   document.getElementById('kpi-total').textContent = allTickets.length;
   document.getElementById('kpi-urgent').textContent = allTickets.filter(t=>t.urgencia==='urgente').length;
   document.getElementById('kpi-open').textContent = allTickets.filter(t=>t.status==='aberto').length;
@@ -1420,14 +1414,13 @@ function renderList() {
     const btnIniciar = t.status==='aberto' ? `<button class="tc-btn tc-btn-progress" onclick="updateStatus('${t.firebaseId}','em_andamento')">▶ Iniciar</button>` : '';
     const btnConcluir = t.status!=='concluido' ? `<button class="tc-btn tc-btn-done" onclick="updateStatus('${t.firebaseId}','concluido')">✓ Concluir</button>` : '';
     const btnMat = `<button class="tc-btn tc-btn-material" onclick="openMateriais('${t.firebaseId}')">🔧 ${t.materiais&&t.materiais.length?'Ver/Editar Materiais':'Registrar Materiais'}</button>`;
-    const btnDelete = gestorAutenticado
-      ? `<button class="tc-btn tc-btn-delete" onclick="excluirChamado('${t.firebaseId}','${t.num||''}')">🗑 Excluir</button>`
-      : '';
+    const btnDelete = `<button class="tc-btn tc-btn-delete" onclick="excluirChamado('${t.firebaseId}','${t.num||''}')">🗑 Excluir</button>`;
     const matBlock = (t.materiais&&t.materiais.length) ? `
       <div class="tc-materiais"><strong>🔧 Materiais utilizados</strong>
       ${t.materiais.map(m=>`${m.qtd?'<b>'+m.qtd+'x</b> ':''}${m.nome}`).join(' · ')}
       ${t.obsMateria?`<div style="margin-top:4px;opacity:.8">${t.obsMateria}</div>`:''}</div>` : '';
 
+    // Datas e duração
     const duracaoTotal = t.concluidoEm ? calcDuracao(t.criado, t.concluidoEm) : (t.iniciadoEm ? calcDuracao(t.criado) : null);
     const datasBlock = `
       <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;font-size:11px;color:var(--text2)">
@@ -1458,27 +1451,12 @@ function renderList() {
 }
 
 window.excluirChamado = async (firebaseId, num) => {
-  if (!gestorAutenticado) {
-    alert('Apenas o gestor pode excluir chamados.');
-    return;
-  }
-  const chamado = allTickets.find(t => t.firebaseId === firebaseId);
-  if (!chamado) {
-    alert('Chamado não encontrado.');
-    return;
-  }
-  if (chamado.status !== 'aberto') {
-    alert('Só é possível excluir chamados em aberto.');
-    return;
-  }
-  if (!confirm(`Tem certeza que deseja excluir o chamado ${num || ''}?
+  if (!confirm(`Tem certeza que deseja excluir o chamado ${num}?
 
 Esta ação não pode ser desfeita.`)) return;
   try {
     await deleteDoc(doc(db, 'chamados', firebaseId));
-  } catch(e) {
-    alert('Erro ao excluir: ' + e.message);
-  }
+  } catch(e) { alert('Erro ao excluir: ' + e.message); }
 };
 
 window.updateStatus = async (firebaseId, status) => {
@@ -1491,6 +1469,7 @@ window.updateStatus = async (firebaseId, status) => {
     alert('Erro: '+e.message);
   }
 };
+
 // =====================
 // MATERIAIS
 // =====================
@@ -1502,6 +1481,7 @@ window.openMateriais = (firebaseId) => {
   document.getElementById('mat-ticket-info').innerHTML = `<b>${t.num||''}</b> — ${t.unidade}<br><span style="color:var(--text2)">${t.descricao}</span>`;
   document.getElementById('inp-mat-obs').value = t.obsMateria||'';
   document.getElementById('inp-mat-busca').value = '';
+  document.getElementById('inp-mat-selecionado').value = '';
   document.getElementById('inp-mat-qtd').value = '';
   renderMatList();
   document.getElementById('modal-materiais').classList.remove('hidden');
@@ -1514,14 +1494,40 @@ function renderMatList() {
   el.innerHTML = matTemp.map((m,i)=>`<div class="mat-item"><span class="mat-nome">${m.nome}</span><span class="mat-qtd">${m.qtd||'—'}</span><button class="mat-del" onclick="removeMaterial(${i})">✕</button></div>`).join('');
 }
 window.addMaterial = () => {
-  const nome = document.getElementById('inp-mat-selecionado').value.trim();
-  const qtd = document.getElementById('inp-mat-qtd').value.trim();
-  if (!nome) { document.getElementById('inp-mat-busca').focus(); return; }
-  matTemp.push({nome,qtd});
-  document.getElementById('inp-mat-selecionado').value = '';
-  document.getElementById('inp-mat-busca').value = '';
-  document.getElementById('inp-mat-qtd').value = '';
-  document.getElementById('inp-mat-busca').focus();
+  const campoSelecionado = document.getElementById('inp-mat-selecionado');
+  const campoBusca = document.getElementById('inp-mat-busca');
+  const campoQtd = document.getElementById('inp-mat-qtd');
+
+  const selecionado = campoSelecionado.value.trim();
+  const busca = campoBusca.value.trim();
+  const qtd = campoQtd.value.trim();
+
+  let nome = selecionado;
+
+  if (!nome && busca) {
+    const buscaNorm = busca.toLowerCase();
+    const matchExato = LISTA_MATERIAIS.find(m => m.toLowerCase() === buscaNorm);
+    const matchPrefixo = LISTA_MATERIAIS.filter(m => m.toLowerCase().startsWith(buscaNorm));
+    const matchContem = LISTA_MATERIAIS.filter(m => m.toLowerCase().includes(buscaNorm));
+
+    if (matchExato) nome = matchExato;
+    else if (matchPrefixo.length === 1) nome = matchPrefixo[0];
+    else if (matchContem.length === 1) nome = matchContem[0];
+  }
+
+  if (!nome) {
+    alert('Selecione um material da lista antes de adicionar.');
+    campoBusca.focus();
+    return;
+  }
+
+  matTemp.push({nome, qtd});
+  campoSelecionado.value = '';
+  campoBusca.value = '';
+  campoQtd.value = '';
+  const dropdown = document.getElementById('mat-dropdown');
+  if (dropdown) dropdown.className = 'mat-dropdown';
+  campoBusca.focus();
   renderMatList();
 };
 window.removeMaterial = (i) => { matTemp.splice(i,1); renderMatList(); };
@@ -1579,36 +1585,36 @@ window.renderPreview = () => {
   const mes=document.getElementById('rpt-mes').value;
   const ano=document.getElementById('rpt-ano').value;
   const total=filtered.length,urgentes=filtered.filter(t=>t.urgencia==='urgente').length;
-  const abertos=filtered.filter(t=>t.status==='aberto').length,emAndamento=filtered.filter(t=>t.status==='em_andamento').length,concluidos=filtered.filter(t=>t.status==='concluido').length;
+  const abertos=filtered.filter(t=>t.status==='aberto').length,concluidos=filtered.filter(t=>t.status==='concluido').length;
   const now=new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
   const periodoLabel = mes==='todos' ? (ano==='todos'?'Todos os períodos':ano) : (ano==='todos'?nomeMes(parseInt(mes)):nomeMes(parseInt(mes))+' / '+ano);
   const statusLabel={aberto:'Aberto',em_andamento:'Em Andamento',concluido:'Concluído'};
-  const sorted=[...filtered].sort((a,b)=>(a.criado||0)-(b.criado||0));
+  const sorted=[...filtered].sort((a,b)=>{if(a.urgencia==='urgente'&&b.urgencia!=='urgente')return -1;if(b.urgencia==='urgente'&&a.urgencia!=='urgente')return 1;return b.criado-a.criado;});
   const rows=sorted.map(t=>{
     const mats = t.materiais&&t.materiais.length ? t.materiais.map(m=>(m.qtd?m.qtd+'x ':'')+m.nome).join(', ') : '—';
     const obs = t.obsMateria || '—';
     const dataConclusao = t.concluidoEm ? formatDateShort(t.concluidoEm) : '—';
     return `<tr class="${t.urgencia==='urgente'?'row-urgent':''}"><td>${t.num||'—'}</td><td style="font-size:11px">${t.unidade}</td><td style="font-size:11px">${t.descricao}</td><td style="font-weight:${t.urgencia==='urgente'?700:400}">${t.urgencia==='urgente'?'URGENTE':'Normal'}</td><td>${statusLabel[t.status]}</td><td>${formatDateShort(t.criado)}</td><td>${dataConclusao}</td><td style="font-size:11px">${t.solicitante}</td><td style="font-size:11px;color:var(--teal)">${mats}</td><td style="font-size:11px;color:var(--text2)">${obs}</td></tr>`;
   }).join('');
-  document.getElementById('report-preview').innerHTML=`<div class="rpt-header"><h2>Relatório de Chamados de Manutenção</h2><p>Secretaria Municipal de Saúde e Bem-Estar &nbsp;|&nbsp; ${periodoLabel} &nbsp;|&nbsp; Gerado em ${now}</p></div><div class="rpt-kpis"><div class="rpt-kpi"><div class="val" style="color:var(--blue)">${total}</div><div class="lbl">Total</div></div><div class="rpt-kpi"><div class="val" style="color:var(--red)">${urgentes}</div><div class="lbl">Urgentes</div></div><div class="rpt-kpi"><div class="val" style="color:var(--amber)">${abertos}</div><div class="lbl">Abertos</div></div><div class="rpt-kpi"><div class="val" style="color:var(--blue)">${emAndamento}</div><div class="lbl">Em Andamento</div></div><div class="rpt-kpi"><div class="val" style="color:var(--green)">${concluidos}</div><div class="lbl">Concluídos</div></div></div>${total===0?'<div style="text-align:center;padding:24px;color:var(--text2)">Nenhum chamado encontrado para este período.</div>':`<table class="rpt-table"><thead><tr><th>Nº</th><th>Unidade</th><th>Problema</th><th>Urgência</th><th>Status</th><th>Abertura</th><th>Conclusão</th><th>Solicitante</th><th>Materiais</th><th>Observação</th></tr></thead><tbody>${rows}</tbody></table>`}`;
+  document.getElementById('report-preview').innerHTML=`<div class="rpt-header"><h2>Relatório de Chamados de Manutenção</h2><p>Secretaria Municipal de Saúde e Bem-Estar &nbsp;|&nbsp; ${periodoLabel} &nbsp;|&nbsp; Gerado em ${now}</p></div><div class="rpt-kpis"><div class="rpt-kpi"><div class="val" style="color:var(--blue)">${total}</div><div class="lbl">Total</div></div><div class="rpt-kpi"><div class="val" style="color:var(--red)">${urgentes}</div><div class="lbl">Urgentes</div></div><div class="rpt-kpi"><div class="val" style="color:var(--amber)">${abertos}</div><div class="lbl">Abertos</div></div><div class="rpt-kpi"><div class="val" style="color:var(--green)">${concluidos}</div><div class="lbl">Concluídos</div></div></div>${total===0?'<div style="text-align:center;padding:24px;color:var(--text2)">Nenhum chamado encontrado para este período.</div>':`<table class="rpt-table"><thead><tr><th>Nº</th><th>Unidade</th><th>Problema</th><th>Urgência</th><th>Status</th><th>Abertura</th><th>Conclusão</th><th>Solicitante</th><th>Materiais</th><th>Observação</th></tr></thead><tbody>${rows}</tbody></table>`}`;
 };
 window.imprimirRelatorio = () => {
   const filtered=filterForReport(allTickets);
   const mes=document.getElementById('rpt-mes').value;
   const ano=document.getElementById('rpt-ano').value;
   const total=filtered.length,urgentes=filtered.filter(t=>t.urgencia==='urgente').length;
-  const abertos=filtered.filter(t=>t.status==='aberto').length,emAndamento=filtered.filter(t=>t.status==='em_andamento').length,concluidos=filtered.filter(t=>t.status==='concluido').length;
+  const abertos=filtered.filter(t=>t.status==='aberto').length,concluidos=filtered.filter(t=>t.status==='concluido').length;
   const now=new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
   const periodoLabel = mes==='todos' ? (ano==='todos'?'Todos os períodos':ano) : (ano==='todos'?nomeMes(parseInt(mes)):nomeMes(parseInt(mes))+' / '+ano);
   const statusLabel={aberto:'Aberto',em_andamento:'Em Andamento',concluido:'Concluído'};
-  const sorted=[...filtered].sort((a,b)=>(a.criado||0)-(b.criado||0));
+  const sorted=[...filtered].sort((a,b)=>{if(a.urgencia==='urgente'&&b.urgencia!=='urgente')return -1;if(b.urgencia==='urgente'&&a.urgencia!=='urgente')return 1;return b.criado-a.criado;});
   const rows=sorted.map(t=>{
     const mats = t.materiais&&t.materiais.length ? t.materiais.map(m=>(m.qtd?m.qtd+'x ':'')+m.nome).join(', ') : '—';
     const obs = t.obsMateria || '—';
     const dataConclusao = t.concluidoEm ? formatDateShort(t.concluidoEm) : '—';
     return `<tr style="background:${t.urgencia==='urgente'?'#fff0ee':'#fff'}"><td style="padding:7px 8px;border-bottom:1px solid #e5e5e0">${t.num||'—'}</td><td style="padding:7px 8px;border-bottom:1px solid #e5e5e0;font-size:11px">${t.unidade}</td><td style="padding:7px 8px;border-bottom:1px solid #e5e5e0;font-size:11px">${t.descricao}</td><td style="padding:7px 8px;border-bottom:1px solid #e5e5e0;font-weight:${t.urgencia==='urgente'?'bold':'normal'};color:${t.urgencia==='urgente'?'#a32d2d':'#333'}">${t.urgencia==='urgente'?'URGENTE':'Normal'}</td><td style="padding:7px 8px;border-bottom:1px solid #e5e5e0">${statusLabel[t.status]}</td><td style="padding:7px 8px;border-bottom:1px solid #e5e5e0">${formatDateShort(t.criado)}</td><td style="padding:7px 8px;border-bottom:1px solid #e5e5e0">${dataConclusao}</td><td style="padding:7px 8px;border-bottom:1px solid #e5e5e0;font-size:11px">${t.solicitante}</td><td style="padding:7px 8px;border-bottom:1px solid #e5e5e0;font-size:11px;color:#0F6E56">${mats}</td><td style="padding:7px 8px;border-bottom:1px solid #e5e5e0;font-size:11px;color:#555">${obs}</td></tr>`;
   }).join('');
-  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório ${periodoLabel} — SMS</title><style>@page{size:A4 landscape;margin:15mm}@media print{.no-print{display:none!important}body{padding:0}}body{font-family:Arial,sans-serif;font-size:13px;color:#222;padding:24px}.header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #185FA5}.header h1{font-size:17px;margin:0 0 4px;color:#185FA5}.header p{font-size:12px;color:#666;margin:0}.kpis{display:flex;gap:14px;margin-bottom:20px;flex-wrap:wrap}.kpi{border:1px solid #ddd;border-radius:8px;padding:10px 20px;text-align:center}.kpi .v{font-size:22px;font-weight:bold}.kpi .l{font-size:11px;color:#888}table{width:100%;border-collapse:collapse;font-size:11px}th{background:#185FA5;color:white;text-align:left;padding:8px;font-size:10px;text-transform:uppercase}.footer{margin-top:24px;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:10px;text-align:center}.btn-print{margin-bottom:20px;padding:10px 24px;background:#185FA5;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer}</style></head><body><button class="btn-print no-print" onclick="window.print()">🖨 Imprimir / Salvar como PDF</button><div class="header"><div><h1>Relatório de Chamados de Manutenção — ${periodoLabel}</h1><p>Secretaria Municipal de Saúde e Bem-Estar — Divisão de Manutenção</p></div><div style="font-size:11px;color:#888;text-align:right">Gerado em<br><strong>${now}</strong></div></div><div class="kpis"><div class="kpi"><div class="v" style="color:#185FA5">${total}</div><div class="l">Total</div></div><div class="kpi"><div class="v" style="color:#a32d2d">${urgentes}</div><div class="l">Urgentes</div></div><div class="kpi"><div class="v" style="color:#854F0B">${abertos}</div><div class="l">Em Aberto</div></div><div class="kpi"><div class="v" style="color:#185FA5">${emAndamento}</div><div class="l">Em Andamento</div></div><div class="kpi"><div class="v" style="color:#3B6D11">${concluidos}</div><div class="l">Concluídos</div></div></div>${total===0?'<p style="color:#888;text-align:center;padding:30px">Nenhum chamado encontrado para este período.</p>':`<table><thead><tr><th>Nº</th><th>Unidade de Saúde</th><th>Descrição</th><th>Urgência</th><th>Status</th><th>Abertura</th><th>Conclusão</th><th>Solicitante</th><th>Materiais Utilizados</th><th>Observação do Atendimento</th></tr></thead><tbody>${rows}</tbody></table>`}<div class="footer">Secretaria Municipal de Saúde e Bem-Estar — Sistema de Chamados de Manutenção &nbsp;|&nbsp; ${periodoLabel} &nbsp;|&nbsp; ${now}</div></body></html>`;
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório ${periodoLabel} — SMS</title><style>@page{size:A4 landscape;margin:15mm}@media print{.no-print{display:none!important}body{padding:0}}body{font-family:Arial,sans-serif;font-size:13px;color:#222;padding:24px}.header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #185FA5}.header h1{font-size:17px;margin:0 0 4px;color:#185FA5}.header p{font-size:12px;color:#666;margin:0}.kpis{display:flex;gap:14px;margin-bottom:20px}.kpi{border:1px solid #ddd;border-radius:8px;padding:10px 20px;text-align:center}.kpi .v{font-size:22px;font-weight:bold}.kpi .l{font-size:11px;color:#888}table{width:100%;border-collapse:collapse;font-size:11px}th{background:#185FA5;color:white;text-align:left;padding:8px;font-size:10px;text-transform:uppercase}.footer{margin-top:24px;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:10px;text-align:center}.btn-print{margin-bottom:20px;padding:10px 24px;background:#185FA5;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer}</style></head><body><button class="btn-print no-print" onclick="window.print()">🖨 Imprimir / Salvar como PDF</button><div class="header"><div><h1>Relatório de Chamados de Manutenção — ${periodoLabel}</h1><p>Secretaria Municipal de Saúde e Bem-Estar — Divisão de Manutenção</p></div><div style="font-size:11px;color:#888;text-align:right">Gerado em<br><strong>${now}</strong></div></div><div class="kpis"><div class="kpi"><div class="v" style="color:#185FA5">${total}</div><div class="l">Total</div></div><div class="kpi"><div class="v" style="color:#a32d2d">${urgentes}</div><div class="l">Urgentes</div></div><div class="kpi"><div class="v" style="color:#854F0B">${abertos}</div><div class="l">Em Aberto</div></div><div class="kpi"><div class="v" style="color:#3B6D11">${concluidos}</div><div class="l">Concluídos</div></div></div>${total===0?'<p style="color:#888;text-align:center;padding:30px">Nenhum chamado encontrado para este período.</p>':`<table><thead><tr><th>Nº</th><th>Unidade de Saúde</th><th>Descrição</th><th>Urgência</th><th>Status</th><th>Abertura</th><th>Conclusão</th><th>Solicitante</th><th>Materiais Utilizados</th><th>Observação do Atendimento</th></tr></thead><tbody>${rows}</tbody></table>`}<div class="footer">Secretaria Municipal de Saúde e Bem-Estar — Sistema de Chamados de Manutenção &nbsp;|&nbsp; ${periodoLabel} &nbsp;|&nbsp; ${now}</div></body></html>`;
   const w=window.open('','_blank');
   if(w){w.document.write(html);w.document.close();setTimeout(()=>w.print(),500);}
   else{alert('Permita popups no navegador para abrir o relatório.');}
